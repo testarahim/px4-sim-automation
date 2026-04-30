@@ -7,3 +7,8 @@ mission:
 
 paths:
   px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/logs
+  
+  thresholds:
+  altitude_rmse: 1.5
+  velocity_rmse: 1.0
+  attitude_rmse: 5.0
