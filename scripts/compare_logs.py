@@ -12,6 +12,19 @@ def load_altitude(log_path):
     z = -data.data['z']  # down → up
     
     return t, z
+    
+def load_velocity(log_path):
+    ulog = ULog(log_path)
+    data = ulog.get_dataset('vehicle_local_position')
+    
+    t = data.data['timestamp'] * 1e-6
+    vx = data.data['vx']
+    vy = data.data['vy']
+    vz = data.data['vz']
+    
+    speed = np.sqrt(vx**2 + vy**2 + vz**2)
+    
+    return t, speed
 
 def compute_rmse(a, b):
     return np.sqrt(np.mean((a - b) ** 2))
@@ -38,13 +51,21 @@ def plot(sim_t, sim_z, real_z_interp):
 def main():
     sim_t, sim_z = load_altitude("data/sim/sim_log.ulg")
     real_t, real_z = load_altitude("data/real/real_log.ulg")
+    
+    sim_t_v, sim_speed = load_velocity("data/sim/sim_log.ulg")
+    real_t_v, real_speed = load_velocity("data/real/real_log.ulg")
 
     real_interp, rmse = align_and_compare(sim_t, sim_z, real_t, real_z)
-
+    
+    real_speed_interp, vel_rmse = align_and_compare(
+    	sim_t_v, sim_speed,
+    	real_t_v, real_speed
+    )
     plot(sim_t, sim_z, real_interp)
 
     metrics = {
         "altitude_rmse": float(rmse)
+        "velocity_rmse": float(vel_rmse)
     }
 
     with open("results/metrics.json", "w") as f:
