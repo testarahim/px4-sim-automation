@@ -1,4 +1,7 @@
 {
   "altitude_rmse": 0.82,
   "velocity_rmse": 0.47,
+  "roll_rmse": 2.15,
+  "pitch_rmse": 1.80,
+  "yaw_rmse": 3.25
 }
