@@ -3,3 +3,4 @@ pyulog
 matplotlib
 numpy
 pyyaml
+scipy

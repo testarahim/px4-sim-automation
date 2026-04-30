@@ -14,6 +14,9 @@ sleep 10
 python3 scripts/extract_log.py
 python3 scripts/analyze_log.py
 
+echo "Sim vs Real karşılaştırılıyor..."
+python3 scripts/compare_logs.py
+
 echo "Tamamlandı."
 
 kill $SITL_PID

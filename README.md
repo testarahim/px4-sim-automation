@@ -14,6 +14,19 @@ This project provides an automated PX4 SITL simulation pipeline for:
 - Post-flight data analysis with Python
 - Repeatable test workflow
 
+## 📈 Simulation vs Real Comparison
+
+This project includes a comparison tool that evaluates differences between simulation and real flight logs.
+
+### Metrics:
+
+- Altitude RMSE
+
+### Output:
+
+- Comparison plots
+- Numerical error metrics (JSON)
+
 ## 🛠 Requirements
 
 - Ubuntu 20.04+
