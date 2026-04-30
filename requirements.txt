@@ -1,0 +1,5 @@
+mavsdk
+pyulog
+matplotlib
+numpy
+pyyaml

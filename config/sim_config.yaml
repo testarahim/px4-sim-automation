@@ -1,0 +1,9 @@
+sitl:
+  startup_delay: 10
+
+mission:
+  takeoff_altitude: 10
+  hover_time: 10
+
+paths:
+  px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/logs
