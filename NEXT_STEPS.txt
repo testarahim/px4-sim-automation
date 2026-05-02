@@ -1,0 +1,146 @@
+PX4 Simulasyon Otomasyon Projesi - Siradaki Isler
+
+Amacimiz
+--------
+Bu projenin amaci PX4 SITL tabanli, tekrarlanabilir ve olculebilir bir
+simulasyon/test altyapisi kurmaktir. Tek hedef "drone simulator calisti"
+demek degildir. Hedefimiz; gorev calistiran, log toplayan, logdan metrik
+cikaran, pass/fail sonucu ureten ve ileride gercek ucus loglariyla
+karsilastirilabilecek bir test sistemi olusturmaktir.
+
+Mevcut Durum
+------------
+- PX4 v1.16.2 home dizininde kurulu.
+- Gazebo/Gz simulator kurulumu yapildi.
+- run.sh tek komutla pipeline baslatiyor.
+- scripts/start_sitl.py PX4 SITL'i gz_x500 hedefiyle baslatiyor.
+- scripts/run_mission.py MAVSDK ile PX4'e baglaniyor.
+- Gorev akisi: baglan, preflight hazirligini bekle, arm et, takeoff yap,
+  hedef irtifaya cikmayi bekle, hover yap, land et, disarm bekle.
+- scripts/extract_log.py en son PX4 .ulg logunu logs/latest_log.ulg olarak
+  kopyaliyor.
+- scripts/analyze_log.py logdan altitude metrikleri cikariyor, grafik ve
+  results/metrics.json uretiyor.
+- scripts/analyze_log.py artik takeoff_duration_s, hover_altitude_mean_m,
+  hover_altitude_rmse_m, max_overshoot_m ve landing_duration_s metriklerini
+  de uretiyor.
+- config/sim_config.yaml icindeki altitude threshold isimleri netlestirildi:
+  max_altitude_error_m, hover_altitude_rmse_m ve
+  max_landing_final_altitude_m.
+- run.sh SITL ciktilarini terminale basmak yerine logs/sitl.log dosyasina
+  yaziyor.
+
+Son Yapilan Is
+--------------
+- SITL kapanis akisi duzeltildi.
+  - scripts/start_sitl.py sinyal handler icinde bloklamak yerine ana dongude
+    durdurma istegini isliyor.
+  - Kapanista once PX4 shell'e "shutdown" komutu gonderiliyor.
+  - Gerekirse SIGINT, SIGTERM ve en son SIGKILL fallback sirasi kullaniliyor.
+  - Son dogrulamada run.sh "SITL kapanmadi, zorla kapatiliyor" mesajina
+    dusmeden exit code 0 ile kapandi.
+- SITL log temizleme eklendi.
+  - scripts/start_sitl.py PX4 stdout/stderr akisini kendisi okuyup
+    logs/sitl.log dosyasina temizlenmis yazi olarak aktariyor.
+  - "pxh>", ANSI escape, "[2K", shutdown komutu echo parcalari ve beklenen
+    make/ninja kapanis gurultusu logdan filtreleniyor.
+  - Son logs/sitl.log icinde "pxh>", "[2K", escape byte, "Error 130" veya
+    "zorla kapatiliyor" bulunmadigi dogrulandi.
+- bash run.sh ile tam pipeline dogrulandi. Readiness sinyali 11.3 saniyede
+  yakalandi, gorev tamamlandi, log kopyalandi, analiz calisti ve
+  overall_pass=true dondu.
+- Son kosu logu: logs/2026-05-02/19_12_55.ulg
+- Son sonuc: target_altitude_m=20.0, max_altitude_m=19.953306,
+  max_altitude_error_m=0.046694, hover_altitude_rmse_m=0.326158,
+  landing_final_altitude_abs_m=0.002083,
+  overall_pass=true.
+
+Siradaki Yapilacaklar
+---------------------
+
+1. Data klasorlerini ve artifact duzenini netlestir
+   - Her test kosusu icin ayri artifact klasoru olustur:
+     results/runs/<timestamp>/
+   - Bu klasorde sunlar saklansin:
+     - px4.ulg
+     - metrics.json
+     - altitude.png
+     - sitl.log
+   - logs/latest_log.ulg son kosuya kolay erisim icin kalabilir.
+
+2. Scenario yapisina gec
+   - Tek config yerine scenarios/ klasoru olustur.
+   - Ornek senaryolar:
+     - scenarios/takeoff_land_10m.yaml
+     - scenarios/takeoff_land_20m.yaml
+     - scenarios/short_hover.yaml
+   - run.sh veya yeni bir Python runner senaryo dosyasi parametresi alabilsin.
+
+3. Batch runner ekle
+   - Birden fazla senaryoyu sirayla calistiran script yaz:
+     scripts/run_batch.py
+   - Her senaryo icin:
+     - SITL baslat
+     - mission calistir
+     - log kopyala
+     - analiz yap
+     - pass/fail sonucu kaydet
+   - En sonda ozet tablo uret.
+
+4. Sim-vs-real karsilastirma altyapisini duzelt
+    - scripts/compare_logs.py su an sabit path kullaniyor.
+    - Arguman alacak hale getir:
+      python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
+    - batch_compare.py ile uyumlu calissin.
+    - Baslangic metrikleri:
+      - altitude RMSE
+      - velocity RMSE
+      - roll/pitch/yaw RMSE
+
+5. README'yi guncelle
+    - Kurulum:
+      bash setup.sh
+    - Tek kosu:
+      bash run.sh
+    - SITL log izleme:
+      tail -f logs/sitl.log
+    - Sonuc dosyalari:
+      results/metrics.json
+      results/plots/altitude.png
+    - PX4_DIR farkliysa nasil calistirilacagi:
+      PX4_DIR=/path/to/PX4-Autopilot bash run.sh
+
+6. Temizlik
+    - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
+    - logs/, results/plots/, generated artifacts icin .gitignore eklenmeli
+      veya guncellenmeli.
+    - Ornek cikti gerekiyorsa sadece kucuk sample dosyalar tutulmali.
+
+Onemli Teknik Notlar
+--------------------
+- PX4 v1.16.2 icin kullanilan SITL hedefi: gz_x500
+- MAVSDK connection string: udpin://0.0.0.0:14540
+- PX4 log yolu:
+  ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log
+- PX4 terminal ciktilari run.sh ile logs/sitl.log dosyasina yaziliyor.
+- scripts/start_sitl.py logs/sitl.log icin PX4 prompt/ANSI kontrol
+  karakterlerini filtreliyor.
+- SITL readiness beklemesi su log pattern'ini izliyor:
+  "Startup script returned successfully"
+- Kapanista once PX4 shell'e "shutdown" komutu gonderiliyor; sinyal tabanli
+  kapatma sadece fallback olarak kullaniliyor.
+
+Genel Yon
+---------
+Bu projede her yeni adim su prensibe uymali:
+
+1. Komut gonder.
+2. Telemetriyle beklenen durumu dogrula.
+3. Log/artifact kaydet.
+4. Metrik hesapla.
+5. Pass/fail sonucu uret.
+6. Tamamlanan isi git commit'e al; commit mesajinda yapilan islerin
+   durum ozetini belirt.
+
+Bu prensip korunursa proje zamanla profesyonel bir PX4 simulation regression
+test altyapisina donusur.

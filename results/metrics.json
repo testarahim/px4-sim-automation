@@ -1,32 +1,25 @@
 {
-  "timestamp": "2026-04-30T12:45:00Z",
-  "simulation": {
-    "model": "px4_sitl_gazebo",
-    "commit": "a1b2c3d",
-    "mission": "simple_takeoff",
-    "duration_sec": 35
-  },
-  "metrics": {
-    "altitude_rmse": 0.82,
-    "velocity_rmse": 0.47,
-    "roll_rmse": 2.15,
-    "pitch_rmse": 1.80,
-    "yaw_rmse": 3.25
-  },
-  "thresholds": {
-    "altitude_rmse": 1.5,
-    "velocity_rmse": 1.0,
-    "attitude_rmse": 5.0
-  },
-  "evaluation": {
-    "altitude_pass": true,
-    "velocity_pass": true,
-    "attitude_pass": true,
-    "overall_pass": true
-  },
-  "data_quality": {
-    "sim_log_missing": false,
-    "real_log_missing": false,
-    "time_sync_error_sec": 0.12
-  }
+    "target_altitude_m": 20.0,
+    "max_altitude_m": 19.953306198120117,
+    "final_altitude_m": 0.0020827054977416992,
+    "landing_final_altitude_abs_m": 0.0020827054977416992,
+    "max_altitude_error_m": 0.04669380187988281,
+    "max_overshoot_m": 0.0,
+    "takeoff_duration_s": 11.748,
+    "hover_altitude_mean_m": 19.771133422851562,
+    "hover_altitude_rmse_m": 0.3261583745479584,
+    "landing_duration_s": 18.543999999999997,
+    "duration_s": 51.88399999999999,
+    "evaluation": {
+        "thresholds": {
+            "max_altitude_error_m": 1.5,
+            "hover_altitude_rmse_m": 1.5,
+            "max_landing_final_altitude_m": 0.3
+        },
+        "max_altitude_error_pass": true,
+        "hover_altitude_rmse_pass": true,
+        "landing_final_altitude_pass": true,
+        "altitude_pass": true,
+        "overall_pass": true
+    }
 }
