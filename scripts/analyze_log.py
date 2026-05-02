@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -13,6 +14,29 @@ LOG_PATH = PROJECT_DIR / "logs" / "latest_log.ulg"
 RESULTS_DIR = PROJECT_DIR / "results"
 PLOTS_DIR = RESULTS_DIR / "plots"
 METRICS_PATH = RESULTS_DIR / "metrics.json"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Analyze a PX4 .ulg log.")
+    parser.add_argument(
+        "--log",
+        type=Path,
+        default=LOG_PATH,
+        help=f"PX4 .ulg log path. Default: {LOG_PATH}",
+    )
+    parser.add_argument(
+        "--metrics",
+        type=Path,
+        default=METRICS_PATH,
+        help=f"Metrics JSON output path. Default: {METRICS_PATH}",
+    )
+    parser.add_argument(
+        "--plot",
+        type=Path,
+        default=PLOTS_DIR / "altitude.png",
+        help=f"Altitude plot output path. Default: {PLOTS_DIR / 'altitude.png'}",
+    )
+    return parser.parse_args()
 
 
 def load_config():
@@ -120,9 +144,8 @@ def compute_altitude_metrics(
     }
 
 
-def plot_altitude(time_s, altitude_m, target_altitude):
-    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
-
+def plot_altitude(time_s, altitude_m, target_altitude, plot_path):
+    plot_path.parent.mkdir(parents=True, exist_ok=True)
     plt.figure()
     plt.plot(time_s, altitude_m, label="Altitude")
     plt.axhline(target_altitude, color="tab:orange", linestyle="--", label="Target")
@@ -130,7 +153,7 @@ def plot_altitude(time_s, altitude_m, target_altitude):
     plt.xlabel("Time (s)")
     plt.ylabel("Altitude (m)")
     plt.legend()
-    plt.savefig(PLOTS_DIR / "altitude.png")
+    plt.savefig(plot_path)
     plt.close()
 
 
@@ -198,6 +221,7 @@ def evaluate(metrics, config):
 
 
 def main():
+    args = parse_args()
     config = load_config()
     target_altitude = config["mission"]["takeoff_altitude"]
     hover_time = config["mission"]["hover_time"]
@@ -207,7 +231,7 @@ def main():
         0.3,
     )
 
-    ulog = ULog(str(LOG_PATH))
+    ulog = ULog(str(args.log))
     time_s, altitude_m = load_altitude(ulog)
 
     metrics = compute_altitude_metrics(
@@ -220,15 +244,15 @@ def main():
     )
     metrics["evaluation"] = evaluate(metrics, config)
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    plot_altitude(time_s, altitude_m, target_altitude)
+    args.metrics.parent.mkdir(parents=True, exist_ok=True)
+    plot_altitude(time_s, altitude_m, target_altitude, args.plot)
 
-    with METRICS_PATH.open("w", encoding="utf-8") as metrics_file:
+    with args.metrics.open("w", encoding="utf-8") as metrics_file:
         json.dump(metrics, metrics_file, indent=4)
 
-    print(f"Analyzed log: {LOG_PATH}")
-    print(f"Saved plot: {PLOTS_DIR / 'altitude.png'}")
-    print(f"Saved metrics: {METRICS_PATH}")
+    print(f"Analyzed log: {args.log}")
+    print(f"Saved plot: {args.plot}")
+    print(f"Saved metrics: {args.metrics}")
     print(f"Overall pass: {metrics['evaluation']['overall_pass']}")
 
 

@@ -18,9 +18,11 @@ Mevcut Durum
 - Gorev akisi: baglan, preflight hazirligini bekle, arm et, takeoff yap,
   hedef irtifaya cikmayi bekle, hover yap, land et, disarm bekle.
 - scripts/extract_log.py en son PX4 .ulg logunu logs/latest_log.ulg olarak
-  kopyaliyor.
+  kopyaliyor; --artifact-dir verilirse ayni logu run artifact klasorune
+  px4.ulg olarak da kopyaliyor.
 - scripts/analyze_log.py logdan altitude metrikleri cikariyor, grafik ve
-  results/metrics.json uretiyor.
+  results/metrics.json uretiyor; --log, --metrics ve --plot argumanlariyla
+  cikti hedefleri degistirilebiliyor.
 - scripts/analyze_log.py artik takeoff_duration_s, hover_altitude_mean_m,
   hover_altitude_rmse_m, max_overshoot_m ve landing_duration_s metriklerini
   de uretiyor.
@@ -29,46 +31,37 @@ Mevcut Durum
   max_landing_final_altitude_m.
 - run.sh SITL ciktilarini terminale basmak yerine logs/sitl.log dosyasina
   yaziyor.
+- run.sh her kosu icin results/runs/<timestamp>/ artifact klasoru olusturuyor.
 
 Son Yapilan Is
 --------------
-- SITL kapanis akisi duzeltildi.
-  - scripts/start_sitl.py sinyal handler icinde bloklamak yerine ana dongude
-    durdurma istegini isliyor.
-  - Kapanista once PX4 shell'e "shutdown" komutu gonderiliyor.
-  - Gerekirse SIGINT, SIGTERM ve en son SIGKILL fallback sirasi kullaniliyor.
-  - Son dogrulamada run.sh "SITL kapanmadi, zorla kapatiliyor" mesajina
-    dusmeden exit code 0 ile kapandi.
-- SITL log temizleme eklendi.
-  - scripts/start_sitl.py PX4 stdout/stderr akisini kendisi okuyup
-    logs/sitl.log dosyasina temizlenmis yazi olarak aktariyor.
-  - "pxh>", ANSI escape, "[2K", shutdown komutu echo parcalari ve beklenen
-    make/ninja kapanis gurultusu logdan filtreleniyor.
-  - Son logs/sitl.log icinde "pxh>", "[2K", escape byte, "Error 130" veya
-    "zorla kapatiliyor" bulunmadigi dogrulandi.
-- bash run.sh ile tam pipeline dogrulandi. Readiness sinyali 11.3 saniyede
+- Artifact duzeni eklendi.
+  - run.sh her kosu basinda RUN_ID uretip results/runs/<timestamp>/ klasoru
+    olusturuyor.
+  - scripts/extract_log.py --artifact-dir ile son PX4 logunu bu klasore
+    px4.ulg olarak kopyaliyor; logs/latest_log.ulg alias'i korunuyor.
+  - scripts/analyze_log.py --log, --metrics ve --plot argumanlariyla
+    artifact klasorune metrics.json ve altitude.png yazabiliyor.
+  - run.sh son kosunun results/metrics.json ve results/plots/altitude.png
+    alias'larini koruyor.
+  - run.sh cikista logs/sitl.log dosyasini artifact klasorune sitl.log
+    olarak kopyaliyor.
+  - results/runs/ .gitignore'a eklendi; buyuk kosu artifact'lari git'e
+    alinmayacak.
+- bash run.sh ile tam pipeline dogrulandi. Readiness sinyali 11.5 saniyede
   yakalandi, gorev tamamlandi, log kopyalandi, analiz calisti ve
   overall_pass=true dondu.
-- Son kosu logu: logs/2026-05-02/19_12_55.ulg
-- Son sonuc: target_altitude_m=20.0, max_altitude_m=19.953306,
-  max_altitude_error_m=0.046694, hover_altitude_rmse_m=0.326158,
-  landing_final_altitude_abs_m=0.002083,
+- Son artifact klasoru: results/runs/20260502_222431/
+- Son kosu logu: logs/2026-05-02/19_24_43.ulg
+- Son sonuc: target_altitude_m=20.0, max_altitude_m=19.948200,
+  max_altitude_error_m=0.051800, hover_altitude_rmse_m=0.325903,
+  landing_final_altitude_abs_m=0.006969,
   overall_pass=true.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Data klasorlerini ve artifact duzenini netlestir
-   - Her test kosusu icin ayri artifact klasoru olustur:
-     results/runs/<timestamp>/
-   - Bu klasorde sunlar saklansin:
-     - px4.ulg
-     - metrics.json
-     - altitude.png
-     - sitl.log
-   - logs/latest_log.ulg son kosuya kolay erisim icin kalabilir.
-
-2. Scenario yapisina gec
+1. Scenario yapisina gec
    - Tek config yerine scenarios/ klasoru olustur.
    - Ornek senaryolar:
      - scenarios/takeoff_land_10m.yaml
@@ -76,7 +69,7 @@ Siradaki Yapilacaklar
      - scenarios/short_hover.yaml
    - run.sh veya yeni bir Python runner senaryo dosyasi parametresi alabilsin.
 
-3. Batch runner ekle
+2. Batch runner ekle
    - Birden fazla senaryoyu sirayla calistiran script yaz:
      scripts/run_batch.py
    - Her senaryo icin:
@@ -87,7 +80,7 @@ Siradaki Yapilacaklar
      - pass/fail sonucu kaydet
    - En sonda ozet tablo uret.
 
-4. Sim-vs-real karsilastirma altyapisini duzelt
+3. Sim-vs-real karsilastirma altyapisini duzelt
     - scripts/compare_logs.py su an sabit path kullaniyor.
     - Arguman alacak hale getir:
       python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
@@ -97,7 +90,7 @@ Siradaki Yapilacaklar
       - velocity RMSE
       - roll/pitch/yaw RMSE
 
-5. README'yi guncelle
+4. README'yi guncelle
     - Kurulum:
       bash setup.sh
     - Tek kosu:
@@ -110,10 +103,10 @@ Siradaki Yapilacaklar
     - PX4_DIR farkliysa nasil calistirilacagi:
       PX4_DIR=/path/to/PX4-Autopilot bash run.sh
 
-6. Temizlik
+5. Temizlik
     - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
-    - logs/, results/plots/, generated artifacts icin .gitignore eklenmeli
-      veya guncellenmeli.
+    - logs/, results/plots/, results/runs/ gibi generated artifacts icin
+      .gitignore korunmali.
     - Ornek cikti gerekiyorsa sadece kucuk sample dosyalar tutulmali.
 
 Onemli Teknik Notlar
@@ -123,6 +116,10 @@ Onemli Teknik Notlar
 - PX4 log yolu:
   ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log
 - PX4 terminal ciktilari run.sh ile logs/sitl.log dosyasina yaziliyor.
+- Her tam kosu icin artifact klasoru:
+  results/runs/<timestamp>/
+- Artifact klasorundeki beklenen dosyalar:
+  px4.ulg, metrics.json, altitude.png, sitl.log
 - scripts/start_sitl.py logs/sitl.log icin PX4 prompt/ANSI kontrol
   karakterlerini filtreliyor.
 - SITL readiness beklemesi su log pattern'ini izliyor:
@@ -141,6 +138,8 @@ Bu projede her yeni adim su prensibe uymali:
 5. Pass/fail sonucu uret.
 6. Tamamlanan isi git commit'e al; commit mesajinda yapilan islerin
    durum ozetini belirt.
+7. Commitler kullanicinin git kimligiyle atilmali:
+   Abdurrahim TIRABZON <arahimtirabzon@gmail.com>.
 
 Bu prensip korunursa proje zamanla profesyonel bir PX4 simulation regression
 test altyapisina donusur.
