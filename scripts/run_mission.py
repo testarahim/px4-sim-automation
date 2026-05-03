@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 from pathlib import Path
 
 import yaml
@@ -8,6 +9,17 @@ from mavsdk.action import ActionError
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "sim_config.yaml"
 DEFAULT_SYSTEM_ADDRESS = "udpin://0.0.0.0:14540"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run a PX4 SITL mission.")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=CONFIG_PATH,
+        help=f"Mission config/scenario YAML path. Default: {CONFIG_PATH}",
+    )
+    return parser.parse_args()
 
 
 def report_event(event, detail=None):
@@ -102,8 +114,8 @@ async def arm_with_retry(drone, timeout):
     raise TimeoutError(f"Arming timed out after {timeout} seconds") from last_error
 
 
-async def run():
-    config = load_config()
+async def run(config_path=CONFIG_PATH):
+    config = load_config(config_path)
     takeoff_altitude = get_positive_number(config, "mission", "takeoff_altitude")
     hover_time = get_positive_number(config, "mission", "hover_time")
     takeoff_timeout = get_positive_number(config, "mission", "takeoff_timeout")
@@ -173,4 +185,5 @@ async def run():
     print("Landing tamamlandı.", flush=True)
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    args = parse_args()
+    asyncio.run(run(args.config))

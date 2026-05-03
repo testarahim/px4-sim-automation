@@ -19,6 +19,12 @@ METRICS_PATH = RESULTS_DIR / "metrics.json"
 def parse_args():
     parser = argparse.ArgumentParser(description="Analyze a PX4 .ulg log.")
     parser.add_argument(
+        "--config",
+        type=Path,
+        default=CONFIG_PATH,
+        help=f"Analysis config/scenario YAML path. Default: {CONFIG_PATH}",
+    )
+    parser.add_argument(
         "--log",
         type=Path,
         default=LOG_PATH,
@@ -39,8 +45,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def load_config():
-    with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
+def load_config(config_path):
+    with config_path.open("r", encoding="utf-8") as config_file:
         return yaml.safe_load(config_file) or {}
 
 
@@ -222,7 +228,7 @@ def evaluate(metrics, config):
 
 def main():
     args = parse_args()
-    config = load_config()
+    config = load_config(args.config)
     target_altitude = config["mission"]["takeoff_altitude"]
     hover_time = config["mission"]["hover_time"]
     altitude_tolerance = config["mission"]["altitude_tolerance"]

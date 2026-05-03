@@ -35,41 +35,34 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Artifact duzeni eklendi.
-  - run.sh her kosu basinda RUN_ID uretip results/runs/<timestamp>/ klasoru
-    olusturuyor.
-  - scripts/extract_log.py --artifact-dir ile son PX4 logunu bu klasore
-    px4.ulg olarak kopyaliyor; logs/latest_log.ulg alias'i korunuyor.
-  - scripts/analyze_log.py --log, --metrics ve --plot argumanlariyla
-    artifact klasorune metrics.json ve altitude.png yazabiliyor.
-  - run.sh son kosunun results/metrics.json ve results/plots/altitude.png
-    alias'larini koruyor.
-  - run.sh cikista logs/sitl.log dosyasini artifact klasorune sitl.log
-    olarak kopyaliyor.
-  - results/runs/ .gitignore'a eklendi; buyuk kosu artifact'lari git'e
-    alinmayacak.
-- bash run.sh ile tam pipeline dogrulandi. Readiness sinyali 11.5 saniyede
-  yakalandi, gorev tamamlandi, log kopyalandi, analiz calisti ve
-  overall_pass=true dondu.
-- Son artifact klasoru: results/runs/20260502_222431/
-- Son kosu logu: logs/2026-05-02/19_24_43.ulg
-- Son sonuc: target_altitude_m=20.0, max_altitude_m=19.948200,
-  max_altitude_error_m=0.051800, hover_altitude_rmse_m=0.325903,
-  landing_final_altitude_abs_m=0.006969,
-  overall_pass=true.
+- Scenario yapisina ilk gecis eklendi.
+  - scenarios/ klasoru olusturuldu.
+  - Ornek senaryolar eklendi:
+    scenarios/takeoff_land_10m.yaml,
+    scenarios/takeoff_land_20m.yaml,
+    scenarios/short_hover.yaml.
+  - run.sh artik opsiyonel senaryo/config dosyasi parametresi aliyor.
+    Varsayilan senaryo: scenarios/takeoff_land_20m.yaml.
+  - scripts/run_mission.py --config argumaniyla gorev parametrelerini
+    secilen senaryodan okuyabiliyor.
+  - scripts/analyze_log.py --config argumaniyla hedef irtifa, hover suresi
+    ve threshold degerlerini secilen senaryodan okuyabiliyor.
+  - run.sh readiness, mission ve analiz adimlarina ayni senaryo dosyasini
+    iletiyor.
+- Hafif dogrulama yapildi:
+  - bash -n run.sh
+  - python3 -m py_compile scripts/run_mission.py scripts/analyze_log.py
+    scripts/wait_for_sitl_ready.py
+  - python3 scripts/run_mission.py --help
+  - python3 scripts/analyze_log.py --help
+  - scenarios/*.yaml dosyalari yaml.safe_load ile okundu ve temel mission
+    degerleri kontrol edildi.
+- Tam SITL pipeline bu adimda yeniden calistirilmadi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Scenario yapisina gec
-   - Tek config yerine scenarios/ klasoru olustur.
-   - Ornek senaryolar:
-     - scenarios/takeoff_land_10m.yaml
-     - scenarios/takeoff_land_20m.yaml
-     - scenarios/short_hover.yaml
-   - run.sh veya yeni bir Python runner senaryo dosyasi parametresi alabilsin.
-
-2. Batch runner ekle
+1. Batch runner ekle
    - Birden fazla senaryoyu sirayla calistiran script yaz:
      scripts/run_batch.py
    - Her senaryo icin:
@@ -80,7 +73,7 @@ Siradaki Yapilacaklar
      - pass/fail sonucu kaydet
    - En sonda ozet tablo uret.
 
-3. Sim-vs-real karsilastirma altyapisini duzelt
+2. Sim-vs-real karsilastirma altyapisini duzelt
     - scripts/compare_logs.py su an sabit path kullaniyor.
     - Arguman alacak hale getir:
       python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
@@ -90,7 +83,7 @@ Siradaki Yapilacaklar
       - velocity RMSE
       - roll/pitch/yaw RMSE
 
-4. README'yi guncelle
+3. README'yi guncelle
     - Kurulum:
       bash setup.sh
     - Tek kosu:
@@ -103,7 +96,7 @@ Siradaki Yapilacaklar
     - PX4_DIR farkliysa nasil calistirilacagi:
       PX4_DIR=/path/to/PX4-Autopilot bash run.sh
 
-5. Temizlik
+4. Temizlik
     - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
     - logs/, results/plots/, results/runs/ gibi generated artifacts icin
       .gitignore korunmali.
