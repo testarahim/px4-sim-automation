@@ -60,8 +60,34 @@ Son Yapilan Is
 Siradaki Yapilacaklar
 ---------------------
 
-1. Ileride eklenebilecek iyilestirmeler
-    - docs/architecture.md dosyasini yeni scenario/batch akisina gore genislet.
+1. docs/architecture.md dosyasini yeni akisa gore genislet
+    - Scenario tabanli tek kosu akisiyla batch akisinin mimari diyagramini
+      ekle.
+    - Artifact klasorleri, alias dosyalari, metrics/plots ve sim-vs-real
+      compare adimini belgeye ekle.
+    - scripts/start_sitl.py, run.sh, scripts/run_batch.py,
+      scripts/compare_logs.py ve scripts/batch_compare.py rollerini acikla.
+
+2. Flight Review public log downloader entegrasyonunu planla
+    - Incelenen kaynak:
+      https://github.com/PX4/flight_review/blob/main/app/download_logs.py
+    - Bu script PX4 Flight Review public log veritabanindan .ulg loglari
+      indirmek icin kullaniliyor; bagli arac/SITL'den log cekmez.
+    - Amacimiz: sim-vs-real karsilastirmasi icin kontrollu bir gercek ucus
+      log havuzu olusturmak.
+    - Onerilen proje akisi:
+      - data/real/public_logs/ altina public .ulg loglari indir.
+      - Indirme filtrelerini MAV type, flight mode, rating, airframe type,
+        source, git hash gibi alanlara gore sinirla.
+      - Rate limit ve buyuk indirme uyarilarini koru.
+      - Indirilen loglari scripts/compare_logs.py ve batch_compare.py ile
+        kullanilabilir hale getir.
+    - Ilk uygulama fikri:
+      scripts/download_public_logs.py veya docs/download_public_logs.md
+      olustur; dogrudan upstream scripti kopyalamadan once lisans ve
+      bagimliliklari kontrol et.
+
+3. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
     - compare_logs.py icin kucuk fixture veya mock veriyle otomatik test
