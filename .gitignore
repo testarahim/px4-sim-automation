@@ -1,5 +1,6 @@
 logs/
 results/runs/
+results/batches/
 results/plots/
 scripts/__pycache__/
 *.pyc

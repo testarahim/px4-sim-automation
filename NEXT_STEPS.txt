@@ -35,45 +35,30 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Scenario yapisina ilk gecis eklendi.
-  - scenarios/ klasoru olusturuldu.
-  - Ornek senaryolar eklendi:
-    scenarios/takeoff_land_10m.yaml,
-    scenarios/takeoff_land_20m.yaml,
-    scenarios/short_hover.yaml.
-  - run.sh artik opsiyonel senaryo/config dosyasi parametresi aliyor.
-    Varsayilan senaryo: scenarios/takeoff_land_20m.yaml.
-  - scripts/run_mission.py --config argumaniyla gorev parametrelerini
-    secilen senaryodan okuyabiliyor.
-  - scripts/analyze_log.py --config argumaniyla hedef irtifa, hover suresi
-    ve threshold degerlerini secilen senaryodan okuyabiliyor.
-  - run.sh readiness, mission ve analiz adimlarina ayni senaryo dosyasini
-    iletiyor.
+- Batch runner eklendi.
+  - scripts/run_batch.py birden fazla senaryoyu sirayla calistirabiliyor.
+  - Varsayilan olarak scenarios/*.yaml dosyalarini bulup her biri icin
+    bash run.sh <scenario> komutunu cagiriyor.
+  - Her senaryo icin RUN_ID uretip mevcut artifact duzenini kullaniyor:
+    results/runs/<batch_id>_<index>_<scenario>/
+  - Her kosunun runner ciktisi batch artifact klasorune yaziliyor:
+    results/batches/<batch_id>/*.runner.log
+  - Batch sonunda summary.json ve summary.csv uretiliyor.
+  - Terminale kisa ozet tablo basiliyor.
+  - --stop-on-fail, --batch-id, --scenario-dir ve --results-dir
+    argumanlari eklendi.
+  - results/batches/ .gitignore'a eklendi.
 - Hafif dogrulama yapildi:
-  - bash -n run.sh
-  - python3 -m py_compile scripts/run_mission.py scripts/analyze_log.py
-    scripts/wait_for_sitl_ready.py
-  - python3 scripts/run_mission.py --help
-  - python3 scripts/analyze_log.py --help
-  - scenarios/*.yaml dosyalari yaml.safe_load ile okundu ve temel mission
-    degerleri kontrol edildi.
-- Tam SITL pipeline bu adimda yeniden calistirilmadi.
+  - python3 -m py_compile scripts/run_batch.py
+  - python3 scripts/run_batch.py --help
+  - scripts.run_batch.resolve_scenarios ile scenarios/*.yaml kesfi
+    kontrol edildi.
+- Tam SITL batch pipeline bu adimda calistirilmadi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Batch runner ekle
-   - Birden fazla senaryoyu sirayla calistiran script yaz:
-     scripts/run_batch.py
-   - Her senaryo icin:
-     - SITL baslat
-     - mission calistir
-     - log kopyala
-     - analiz yap
-     - pass/fail sonucu kaydet
-   - En sonda ozet tablo uret.
-
-2. Sim-vs-real karsilastirma altyapisini duzelt
+1. Sim-vs-real karsilastirma altyapisini duzelt
     - scripts/compare_logs.py su an sabit path kullaniyor.
     - Arguman alacak hale getir:
       python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
@@ -83,7 +68,7 @@ Siradaki Yapilacaklar
       - velocity RMSE
       - roll/pitch/yaw RMSE
 
-3. README'yi guncelle
+2. README'yi guncelle
     - Kurulum:
       bash setup.sh
     - Tek kosu:
@@ -96,7 +81,7 @@ Siradaki Yapilacaklar
     - PX4_DIR farkliysa nasil calistirilacagi:
       PX4_DIR=/path/to/PX4-Autopilot bash run.sh
 
-4. Temizlik
+3. Temizlik
     - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
     - logs/, results/plots/, results/runs/ gibi generated artifacts icin
       .gitignore korunmali.
