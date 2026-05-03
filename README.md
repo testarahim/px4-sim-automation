@@ -123,6 +123,16 @@ python3 scripts/compare_logs.py \
   --real path/to/real.ulg
 ```
 
+Align logs by first takeoff-threshold crossing before comparing:
+
+```bash
+python3 scripts/compare_logs.py \
+  --config scenarios/takeoff_land_20m.yaml \
+  --alignment takeoff \
+  --sim path/to/sim.ulg \
+  --real path/to/real.ulg
+```
+
 The comparison computes:
 
 - `altitude_rmse`

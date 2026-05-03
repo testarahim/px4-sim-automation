@@ -7,5 +7,6 @@ results/batches/
 results/comparisons/
 results/plots/
 scripts/__pycache__/
+__pycache__/
 *.pyc
 .codex

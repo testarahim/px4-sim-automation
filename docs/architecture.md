@@ -165,6 +165,18 @@ python3 scripts/compare_logs.py \
   --real path/to/real.ulg
 ```
 
+By default, comparison uses time-zero alignment. For logs whose missions start
+at different offsets, `--alignment takeoff` shifts both logs to the first
+takeoff-threshold altitude crossing before computing RMSE:
+
+```bash
+python3 scripts/compare_logs.py \
+  --config scenarios/takeoff_land_20m.yaml \
+  --alignment takeoff \
+  --sim path/to/sim.ulg \
+  --real path/to/real.ulg
+```
+
 It computes:
 
 - `altitude_rmse`

@@ -37,76 +37,83 @@ Mevcut Durum
   filtrelerini destekliyor: --min-duration-s, --max-duration-s,
   --min-flight-mode-duration-s, --max-flight-mode-duration-s, --sys-hw,
   --exclude-sys-hw, --max-logged-warnings, --max-logged-errors.
+- scripts/compare_logs.py artik varsayilan time-zero hizalamasina ek olarak
+  --alignment takeoff modunu destekliyor; bu mod iki logu ilk takeoff altitude
+  esigi gecisine gore kaydiriyor ve kullanilan offsetleri metrics JSON'a
+  yaziyor.
 
 Son Yapilan Is
 --------------
-- Public log aday secimi sahada dogrulandi ve ek filtreler eklendi.
+- Compare zaman hizalamasi icin opsiyonel takeoff alignment eklendi.
   - Yeni CLI opsiyonlari:
-    --min-duration-s, --max-duration-s,
-    --min-flight-mode-duration-s, --max-flight-mode-duration-s,
-    --sys-hw, --exclude-sys-hw, --max-logged-warnings,
-    --max-logged-errors.
-  - Filtreler Flight Review metadata'sinda birden fazla olasi alan adini
-    destekleyecek sekilde esnek yazildi:
-    duration_s/duration/duration_sec/duration_seconds,
-    num_logged_warnings/logged_warnings/warning_count/warnings,
-    num_logged_errors/logged_errors/error_count/errors.
-  - flight_mode_durations metadata'si bulundu ve belirli modda toplam sure
-    filtresi eklendi. Ornek: --min-flight-mode-duration-s Mission 30.
-  - Public metadata icinde PX4_SITL kayitlarinin da oldugu goruldu; gercek
-    ucus havuzuna SITL karismamasi icin --exclude-sys-hw PX4_SITL eklendi.
-  - Print-only saha kontrolu:
-    385338 public log bulundu.
-    Quadrotor + Mission + Good + duration/warning/error filtreleri 188 aday.
-    Mission >= 30 s filtresiyle 161 aday.
-    PX4_SITL exclude filtresiyle 159 aday.
-  - Indirilen temiz aday:
-    data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
-    Metadata: duration_s=82, Mission=48 s, warnings=1, errors=0,
-    sys_hw=PX4_FMU_V3.
-  - Filtreli aday ile manuel sim-vs-real compare calistirildi:
+    --alignment {time-zero,takeoff}
+    --takeoff-threshold-m
+  - Varsayilan davranis time-zero olarak korundu.
+  - --alignment takeoff verildiginde iki logda altitude ilk kez esigi gectigi
+    zaman bulunuyor; sim/real timestamp'leri bu offsetlerle kaydiriliyor.
+  - Scenario config varsa takeoff threshold varsayilani mission takeoff
+    altitude degerinden turetiliyor; takeoff_land_20m icin esik 1.0 m.
+  - metrics JSON artik alignment.method, takeoff_threshold_m,
+    sim_time_offset_s, real_time_offset_s ve her seri icin ortak zaman araligi
+    ile sample_count bilgisini iceriyor.
+  - Kucuk unittest eklendi:
+    tests/test_compare_logs.py
+  - Filtreli public log ile time-zero compare tekrar calistirildi:
     python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
       --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
       --real data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
-      --metrics results/comparisons/public_log_filtered_metrics.json
-      --plot-dir results/plots/comparisons/public_log_filtered
-  - Compare teknik olarak basarili calisti ve plot/metrics uretti.
-  - Sonuc overall_pass=false. Bu hala beklenen bir durum; filtreler aday
-    kalitesini artiriyor ama gercek log gorev profili SITL takeoff_land_20m
-    ile bire bir hizali degil.
-  - Metrikler:
+      --metrics results/comparisons/public_log_time_zero_metrics.json
+      --plot-dir results/plots/comparisons/public_log_time_zero
+  - Time-zero metrikleri:
     altitude_rmse=7.272608, velocity_rmse=3.708981,
     roll_rmse=7.102740, pitch_rmse=12.452757, yaw_rmse=113.927472.
-  - README.md ve docs/download_public_logs.md filtreli indirme ornekleriyle
+  - Ayni log ile takeoff-aligned compare calistirildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
+      --alignment takeoff
+      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
+      --real data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
+      --metrics results/comparisons/public_log_takeoff_aligned_metrics.json
+      --plot-dir results/plots/comparisons/public_log_takeoff_aligned
+  - Takeoff-aligned metrikleri:
+    altitude_rmse=6.932978, velocity_rmse=4.346891,
+    roll_rmse=7.202829, pitch_rmse=13.435280, yaw_rmse=112.093282.
+  - Takeoff alignment offsetleri:
+    sim_time_offset_s=7.544, real_time_offset_s=0.0.
+    Real log ilk ornekte zaten 1.0 m esiginin ustunde oldugu icin bu public
+    log gercek takeoff baslangicini icermiyor olabilir.
+  - Sonuc overall_pass=false. Bu beklenen bir durum; takeoff hizalamasi
+    teknik olarak calisiyor ama public log gorev profili hala SITL
+    takeoff_land_20m ile bire bir eslesmiyor.
+  - README.md ve docs/architecture.md compare alignment ornekleriyle
     guncellendi.
   - Dogrulama:
-    python3 -m py_compile scripts/download_public_logs.py
-    python3 scripts/download_public_logs.py --help
-    Yerel mock metadata ile filter_entries testi.
+    python3 -m py_compile scripts/compare_logs.py
+    python3 -m unittest tests/test_compare_logs.py
+    python3 scripts/compare_logs.py --help
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Compare zaman hizalamasini iyilestirmeyi degerlendir
-    - compare_logs.py tarafinda takeoff/hover/landing fazlarini ayirarak
-      hizalama yapmak gerekiyor mu incele.
-    - Uygunsa once kucuk fixture veya mock veriyle test ekle.
-    - Mevcut compare time-zero baslangic hizalamasiyla calisiyor; gercek log
-      icinde mission/takeoff/land fazlari farkli basladigi icin RMSE
-      pass/fail sonucu hala davranis eslesmesi olarak yorumlanmamali.
+1. Public log aday secimini airborne-start durumuna gore iyilestir
+    - Bazi public loglar ilk ornekte takeoff esiginin ustunde basliyor.
+      Bu loglar kalkis fazini icermedigi icin takeoff_land senaryosuyla
+      kiyaslamada zayif aday olabilir.
+    - Indirilen .ulg uzerinden on analiz yapip initial_altitude_m,
+      max_altitude_m, final_altitude_m ve landing/takeoff imzasi cikar.
+    - Downloader sonrasi aday seciminde initial_altitude_m <= 0.3 gibi bir
+      kalite kuralini degerlendir.
 
-2. Public log aday secimini daha da iyilestir
-    - Flight Review dbinfo metadata'sinda max altitude bilgisi gorunmedi;
-      gerekirse indirilen .ulg uzerinden on analiz yapip max altitude ve
-      landing/takeoff imzasi bazli aday secimi ekle.
-    - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
-      ve batch compare raporu uret.
+2. Compare faz karsilastirmasini derinlestir
+    - Takeoff alignment yalnizca baslangic offsetini duzeltiyor.
+    - Sonraki adim olarak takeoff/climb, hover ve landing segmentlerini ayri
+      cikartip segment bazli RMSE uretmeyi degerlendir.
+    - Segment bazli metrikler genel overall_pass'ten ayri raporlanmali.
 
 3. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
-    - compare_logs.py icin kucuk fixture veya mock veriyle otomatik test
-      ekle.
+    - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
+      ve batch compare raporu uret.
 
 Onemli Teknik Notlar
 --------------------

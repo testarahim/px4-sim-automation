@@ -1,6 +1,13 @@
 import argparse
 import json
+import os
+import tempfile
 from pathlib import Path
+
+os.environ.setdefault(
+    "MPLCONFIGDIR",
+    str(Path(tempfile.gettempdir()) / "px4_sim_matplotlib"),
+)
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +27,7 @@ DEFAULT_THRESHOLDS = {
     "velocity_rmse": 1.0,
     "attitude_rmse": 5.0,
 }
+DEFAULT_TAKEOFF_THRESHOLD_M = 0.3
 
 
 def parse_args():
@@ -71,6 +79,21 @@ def parse_args():
         type=float,
         default=None,
         help="Roll/pitch/yaw RMSE pass threshold in degrees. Overrides --config.",
+    )
+    parser.add_argument(
+        "--alignment",
+        choices=("time-zero", "takeoff"),
+        default="time-zero",
+        help="Time alignment method used before comparing series.",
+    )
+    parser.add_argument(
+        "--takeoff-threshold-m",
+        type=float,
+        default=None,
+        help=(
+            "Altitude threshold used by --alignment takeoff. Defaults to "
+            "scenario-derived threshold or 0.3 m."
+        ),
     )
     return parser.parse_args()
 
@@ -185,6 +208,65 @@ def compute_rmse(left, right):
     return float(np.sqrt(np.mean((left - right) ** 2)))
 
 
+def first_time_at_or_above(time_s, values, threshold):
+    matching_indexes = np.flatnonzero(values >= threshold)
+    if matching_indexes.size == 0:
+        return None
+    return float(time_s[int(matching_indexes[0])])
+
+
+def default_takeoff_threshold(config):
+    target_altitude = config.get("mission", {}).get("takeoff_altitude")
+    if not isinstance(target_altitude, (int, float)) or target_altitude <= 0:
+        return DEFAULT_TAKEOFF_THRESHOLD_M
+    return float(
+        min(
+            max(DEFAULT_TAKEOFF_THRESHOLD_M, target_altitude * 0.05),
+            target_altitude,
+        )
+    )
+
+
+def resolve_alignment(args, config, sim_t, sim_altitude, real_t, real_altitude):
+    if args.takeoff_threshold_m is not None and args.takeoff_threshold_m < 0:
+        raise ValueError("--takeoff-threshold-m must be non-negative")
+
+    threshold = (
+        float(args.takeoff_threshold_m)
+        if args.takeoff_threshold_m is not None
+        else default_takeoff_threshold(config)
+    )
+
+    alignment = {
+        "method": args.alignment,
+        "takeoff_threshold_m": threshold if args.alignment == "takeoff" else None,
+        "sim_time_offset_s": 0.0,
+        "real_time_offset_s": 0.0,
+    }
+
+    if args.alignment == "time-zero":
+        return alignment
+
+    sim_offset = first_time_at_or_above(sim_t, sim_altitude, threshold)
+    real_offset = first_time_at_or_above(real_t, real_altitude, threshold)
+    if sim_offset is None:
+        raise ValueError(
+            f"Simulation log never reached takeoff alignment threshold {threshold} m"
+        )
+    if real_offset is None:
+        raise ValueError(
+            f"Real log never reached takeoff alignment threshold {threshold} m"
+        )
+
+    alignment["sim_time_offset_s"] = sim_offset
+    alignment["real_time_offset_s"] = real_offset
+    return alignment
+
+
+def shifted_time(time_s, alignment, side):
+    return time_s - alignment[f"{side}_time_offset_s"]
+
+
 def align_and_compare(sim_t, sim_values, real_t, real_values):
     common_t_start = max(sim_t[0], real_t[0])
     common_t_end = min(sim_t[-1], real_t[-1])
@@ -199,7 +281,12 @@ def align_and_compare(sim_t, sim_values, real_t, real_values):
     real_values_aligned = real_interp(sim_t_aligned)
 
     rmse = compute_rmse(sim_values_aligned, real_values_aligned)
-    return sim_t_aligned, sim_values_aligned, real_values_aligned, rmse
+    details = {
+        "common_time_start_s": float(common_t_start),
+        "common_time_end_s": float(common_t_end),
+        "sample_count": int(sim_t_aligned.size),
+    }
+    return sim_t_aligned, sim_values_aligned, real_values_aligned, rmse, details
 
 
 def evaluate(metrics, thresholds):
@@ -235,23 +322,29 @@ def plot_comparison(time_s, sim_data, real_data, name, plot_dir):
     return plot_path
 
 
-def compare_series(sim_ulog, real_ulog, plot_dir):
+def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
     sim_t, sim_altitude = get_altitude(sim_ulog)
     real_t, real_altitude = get_altitude(real_ulog)
-    sim_t_alt, sim_alt, real_alt, altitude_rmse = align_and_compare(
-        sim_t,
+    sim_t_alt, sim_alt, real_alt, altitude_rmse, altitude_details = align_and_compare(
+        shifted_time(sim_t, alignment, "sim"),
         sim_altitude,
-        real_t,
+        shifted_time(real_t, alignment, "real"),
         real_altitude,
     )
     altitude_plot = plot_comparison(sim_t_alt, sim_alt, real_alt, "altitude", plot_dir)
 
     sim_t, sim_speed = get_velocity(sim_ulog)
     real_t, real_speed = get_velocity(real_ulog)
-    sim_t_speed, sim_speed_al, real_speed_al, velocity_rmse = align_and_compare(
-        sim_t,
+    (
+        sim_t_speed,
+        sim_speed_al,
+        real_speed_al,
+        velocity_rmse,
+        velocity_details,
+    ) = align_and_compare(
+        shifted_time(sim_t, alignment, "sim"),
         sim_speed,
-        real_t,
+        shifted_time(real_t, alignment, "real"),
         real_speed,
     )
     velocity_plot = plot_comparison(
@@ -265,10 +358,16 @@ def compare_series(sim_ulog, real_ulog, plot_dir):
     sim_t, sim_roll, sim_pitch, sim_yaw = get_attitude(sim_ulog)
     real_t, real_roll, real_pitch, real_yaw = get_attitude(real_ulog)
 
-    sim_t_roll, sim_roll_al, real_roll_al, roll_rmse = align_and_compare(
-        sim_t,
+    (
+        sim_t_roll,
+        sim_roll_al,
+        real_roll_al,
+        roll_rmse,
+        roll_details,
+    ) = align_and_compare(
+        shifted_time(sim_t, alignment, "sim"),
         sim_roll,
-        real_t,
+        shifted_time(real_t, alignment, "real"),
         real_roll,
     )
     roll_plot = plot_comparison(
@@ -279,10 +378,16 @@ def compare_series(sim_ulog, real_ulog, plot_dir):
         plot_dir,
     )
 
-    sim_t_pitch, sim_pitch_al, real_pitch_al, pitch_rmse = align_and_compare(
-        sim_t,
+    (
+        sim_t_pitch,
+        sim_pitch_al,
+        real_pitch_al,
+        pitch_rmse,
+        pitch_details,
+    ) = align_and_compare(
+        shifted_time(sim_t, alignment, "sim"),
         sim_pitch,
-        real_t,
+        shifted_time(real_t, alignment, "real"),
         real_pitch,
     )
     pitch_plot = plot_comparison(
@@ -293,10 +398,16 @@ def compare_series(sim_ulog, real_ulog, plot_dir):
         plot_dir,
     )
 
-    sim_t_yaw, sim_yaw_al, real_yaw_al, yaw_rmse = align_and_compare(
-        sim_t,
+    (
+        sim_t_yaw,
+        sim_yaw_al,
+        real_yaw_al,
+        yaw_rmse,
+        yaw_details,
+    ) = align_and_compare(
+        shifted_time(sim_t, alignment, "sim"),
         sim_yaw,
-        real_t,
+        shifted_time(real_t, alignment, "real"),
         real_yaw,
     )
     yaw_plot = plot_comparison(sim_t_yaw, sim_yaw_al, real_yaw_al, "yaw", plot_dir)
@@ -313,6 +424,12 @@ def compare_series(sim_ulog, real_ulog, plot_dir):
         "roll": str(roll_plot),
         "pitch": str(pitch_plot),
         "yaw": str(yaw_plot),
+    }, {
+        "altitude": altitude_details,
+        "velocity": velocity_details,
+        "roll": roll_details,
+        "pitch": pitch_details,
+        "yaw": yaw_details,
     }
 
 
@@ -322,9 +439,27 @@ def main():
     sim_ulog = load_log(args.sim)
     real_ulog = load_log(args.real)
 
-    metrics, plots = compare_series(sim_ulog, real_ulog, args.plot_dir)
+    sim_t, sim_altitude = get_altitude(sim_ulog)
+    real_t, real_altitude = get_altitude(real_ulog)
+    alignment = resolve_alignment(
+        args,
+        config,
+        sim_t,
+        sim_altitude,
+        real_t,
+        real_altitude,
+    )
+
+    metrics, plots, alignment_series = compare_series(
+        sim_ulog,
+        real_ulog,
+        args.plot_dir,
+        alignment,
+    )
     thresholds = resolve_thresholds(args, config)
     metrics["evaluation"] = evaluate(metrics, thresholds)
+    metrics["alignment"] = alignment
+    metrics["alignment"]["series"] = alignment_series
     metrics["inputs"] = {
         "sim": str(args.sim),
         "real": str(args.real),
