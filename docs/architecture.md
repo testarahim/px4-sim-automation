@@ -61,6 +61,7 @@ Current starter scenarios:
 - `scenarios/short_hover.yaml`
 - `scenarios/takeoff_land_10m.yaml`
 - `scenarios/takeoff_land_20m.yaml`
+- `scenarios/takeoff_land_31m.yaml`
 
 The legacy default config remains at `config/sim_config.yaml`.
 

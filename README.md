@@ -60,6 +60,7 @@ Available starter scenarios:
 
 - `scenarios/takeoff_land_10m.yaml`
 - `scenarios/takeoff_land_20m.yaml`
+- `scenarios/takeoff_land_31m.yaml`
 - `scenarios/short_hover.yaml`
 
 ## Batch Scenario Run

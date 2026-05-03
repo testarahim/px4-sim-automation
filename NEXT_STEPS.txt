@@ -48,76 +48,54 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Near-ground baslayan public log adayi arandi ve uygun aday bulundu.
-  - Once mevcut filtreyle 5 yeni aday indirildi:
-    python3 scripts/download_public_logs.py --mav-type Quadrotor
-      --flight-modes Mission --rating Good --min-duration-s 30
-      --max-duration-s 180 --min-flight-mode-duration-s Mission 30
-      --exclude-sys-hw PX4_SITL --max-logged-warnings 5
-      --max-logged-errors 0 --max-num 6 --delay 6
-  - Bu sette toplam 7 log inspect edildi:
-    readable=7, airborne_start=7, takeoff_detected=0, landing_detected=2.
-    Sonuc: ilk filtre seti hala takeoff baslangici iceren aday bulamadi.
-  - Metadata tarafinda daha dar sorgu denendi:
-    Mission + Takeoff + Land filtresi 0 aday verdi.
-    Mission + Land filtresi 33 aday verdi.
-  - Mission + Land grubundan 5 belirgin aday log-id ile indirildi:
-    794cf714-8968-4a28-b6ea-bb03bc345619
-    13a40e0f-aa6f-4c70-b273-73ce7e0ee193
-    29957bc3-b211-4751-bcc3-def2d74bb50d
-    c50d804d-7bd8-440c-81d6-c665c5f492a9
-    c544a541-94a9-447d-a015-fb07ef2e3a42
-  - Toplam 12 public log inspect edildi:
-    readable=12, airborne_start=10, takeoff_detected=2, landing_detected=4.
-  - En iyi aday:
-    data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
-    initial_altitude_m=0.139559, max_altitude_m=31.242043,
-    final_altitude_m=-0.289409, takeoff_time_s=2.539483,
-    landing_time_s=184.128474, starts_near_ground=true,
-    takeoff_detected=true, landing_detected=true.
-  - Ikinci takeoff adayi:
-    data/real/public_logs/13a40e0f-aa6f-4c70-b273-73ce7e0ee193.ulg
-    initial_altitude_m=-0.116082, max_altitude_m=6.256645,
-    final_altitude_m=0.364287, takeoff_time_s=4.781704,
-    takeoff_detected=true, landing_detected=false.
-  - En iyi aday ile takeoff-aligned compare calistirildi:
-    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
+- Sim senaryosu real aday profiline yaklastirildi ve 31 m kosu alindi.
+  - Yeni scenario dosyasi eklendi:
+    scenarios/takeoff_land_31m.yaml
+    takeoff_altitude=31, hover_time=10, climb_timeout=60,
+    altitude_tolerance=1.2, landing_timeout=40.
+  - README.md ve docs/architecture.md scenario listeleri guncellendi.
+  - SITL kosusu calistirildi:
+    bash run.sh scenarios/takeoff_land_31m.yaml
+  - Run artifact klasoru:
+    results/runs/20260503_194755/
+  - 31 m SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=31.0, max_altitude_m=30.973637,
+    final_altitude_m=-0.030627, max_altitude_error_m=0.026363,
+    hover_altitude_rmse_m=0.377105, landing_duration_s=26.104,
+    duration_s=63.904.
+  - 31 m sim logu ile c50d804d real adayi takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
       --alignment takeoff
-      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
+      --sim results/runs/20260503_194755/px4.ulg
       --real data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
       --metrics
-        results/comparisons/public_log_near_ground_takeoff_aligned_metrics.json
+        results/comparisons/public_log_31m_takeoff_aligned_metrics.json
       --plot-dir
-        results/plots/comparisons/public_log_near_ground_takeoff_aligned
+        results/plots/comparisons/public_log_31m_takeoff_aligned
   - Compare teknik olarak basarili, overall_pass=false.
     Metrikler:
-    altitude_rmse=17.157718, velocity_rmse=2.408880,
-    roll_rmse=7.890418, pitch_rmse=9.053120, yaw_rmse=133.913798.
+    altitude_rmse=15.195406, velocity_rmse=2.582378,
+    roll_rmse=7.476728, pitch_rmse=9.387935, yaw_rmse=139.826337.
     Alignment offsetleri:
-    sim_time_offset_s=7.544000, real_time_offset_s=2.539483.
-  - Yorum: Artik takeoff/landing iceren real aday bulundu; pass olmamasinin
-    ana nedeni real gorev profilinin SITL takeoff_land_20m ile eslesmemesi.
-    Real aday max altitude 31.24 m, mevcut SITL senaryosu 20 m hedefli.
+    takeoff_threshold_m=1.55, sim_time_offset_s=9.056000,
+    real_time_offset_s=2.844447.
+  - 20 m compare'e gore altitude_rmse 17.157718 -> 15.195406 iyilesti.
+  - Yorum: Sadece hedef irtifayi eslestirmek yeterli degil; real log gorev
+    suresi ve profil sekli SITL takeoff/hover/land profilinden farkli.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Sim senaryosunu real aday profiline gore eslestir
-    - c50d804d real adayi takeoff/landing icin iyi, ancak max_altitude_m
-      31.24 m oldugu icin takeoff_land_20m ile dogrudan RMSE pass beklenmez.
-    - Yeni bir takeoff_land_30m veya takeoff_land_31m scenario dosyasi ekle.
-    - Bu senaryo ile SITL kosusu alip ayni real adayla --alignment takeoff
-      compare'i tekrar calistir.
-    - Alternatif olarak compare_logs.py icin altitude normalize/segment bazli
-      karsilastirma secenegini degerlendir.
-
-2. Compare faz karsilastirmasini derinlestir
+1. Compare faz karsilastirmasini derinlestir
     - Takeoff alignment yalnizca baslangic offsetini duzeltiyor.
-    - Sonraki adim olarak takeoff/climb, hover ve landing segmentlerini ayri
-      cikartip segment bazli RMSE uretmeyi degerlendir.
+    - Sonraki adim olarak takeoff/climb, hover/cruise ve landing segmentlerini
+      ayri cikartip segment bazli RMSE uretmeyi degerlendir.
     - Segment bazli metrikler genel overall_pass'ten ayri raporlanmali.
+    - c50d804d real logu uzun ve farkli profilli oldugu icin global RMSE
+      yerine faz bazli karsilastirma daha anlamli olabilir.
 
-3. Ileride eklenebilecek iyilestirmeler
+2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
     - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
