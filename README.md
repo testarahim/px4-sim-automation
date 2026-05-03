@@ -154,6 +154,8 @@ It also writes phase-based metrics under `segments` for `takeoff_climb`,
 `hover_cruise`, and `landing`. Segment metrics are reported separately from
 `overall_pass` and compare each phase on normalized segment time so logs with
 different phase durations can still be inspected.
+Each segment also includes profile summaries for simulation and real logs:
+mean descent rate, mean horizontal speed, and mean absolute yaw-rate.
 
 Generate a readable Markdown and CSV report from comparison metrics:
 

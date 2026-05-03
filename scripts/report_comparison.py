@@ -74,6 +74,13 @@ def segment_duration(segment, side):
     return side_data.get("duration_s")
 
 
+def profile_value(segment, side, key):
+    profile = segment.get(f"{side}_profile")
+    if not profile:
+        return None
+    return profile.get(key)
+
+
 def build_segment_rows(metrics):
     rows = []
     segments = metrics.get("segments", {})
@@ -98,6 +105,22 @@ def build_segment_rows(metrics):
         row["yaw_heading_normalized_rmse"] = segment.get(
             "yaw_heading_normalized_rmse"
         )
+        for side in ("sim", "real"):
+            row[f"{side}_descent_rate_mean_mps"] = profile_value(
+                segment,
+                side,
+                "descent_rate_mean_mps",
+            )
+            row[f"{side}_horizontal_speed_mean_mps"] = profile_value(
+                segment,
+                side,
+                "horizontal_speed_mean_mps",
+            )
+            row[f"{side}_yaw_rate_abs_mean_deg_s"] = profile_value(
+                segment,
+                side,
+                "yaw_rate_abs_mean_deg_s",
+            )
 
         rows.append(row)
 
@@ -205,6 +228,30 @@ def render_markdown(metrics):
             )
         )
 
+    lines.extend(
+        [
+            "",
+            "## Segment Profile Metrics",
+            "",
+            "| Segment | Sim descent m/s | Real descent m/s | Sim horizontal speed m/s | Real horizontal speed m/s | Sim abs yaw-rate deg/s | Real abs yaw-rate deg/s |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+
+    for row in segment_rows:
+        lines.append(
+            "| {segment} | {sim_descent} | {real_descent} | {sim_hspeed} | "
+            "{real_hspeed} | {sim_yaw_rate} | {real_yaw_rate} |".format(
+                segment=row["segment"],
+                sim_descent=format_value(row["sim_descent_rate_mean_mps"]),
+                real_descent=format_value(row["real_descent_rate_mean_mps"]),
+                sim_hspeed=format_value(row["sim_horizontal_speed_mean_mps"]),
+                real_hspeed=format_value(row["real_horizontal_speed_mean_mps"]),
+                sim_yaw_rate=format_value(row["sim_yaw_rate_abs_mean_deg_s"]),
+                real_yaw_rate=format_value(row["real_yaw_rate_abs_mean_deg_s"]),
+            )
+        )
+
     lines.extend(["", "## Summary", ""])
     if worst_altitude:
         lines.append(
@@ -238,6 +285,12 @@ def render_csv(metrics):
         "yaw_rmse",
         "yaw_heading_offset_deg",
         "yaw_heading_normalized_rmse",
+        "sim_descent_rate_mean_mps",
+        "real_descent_rate_mean_mps",
+        "sim_horizontal_speed_mean_mps",
+        "real_horizontal_speed_mean_mps",
+        "sim_yaw_rate_abs_mean_deg_s",
+        "real_yaw_rate_abs_mean_deg_s",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()

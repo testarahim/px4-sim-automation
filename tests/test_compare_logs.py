@@ -45,6 +45,15 @@ class CompareLogAlignmentTests(unittest.TestCase):
         self.assertAlmostEqual(metrics["yaw_heading_offset_deg"], 20.0)
         self.assertAlmostEqual(metrics["yaw_heading_normalized_rmse"], 0.0)
 
+    def test_compute_yaw_rate_uses_circular_difference(self):
+        time_s, yaw_rate = compare_logs.compute_yaw_rate(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([170.0, -170.0, -160.0]),
+        )
+
+        self.assertTrue(np.array_equal(time_s, np.array([1.0, 2.0])))
+        self.assertTrue(np.array_equal(yaw_rate, np.array([20.0, 10.0])))
+
     def test_resolve_takeoff_alignment_uses_first_threshold_crossing(self):
         args = argparse.Namespace(alignment="takeoff", takeoff_threshold_m=1.0)
 
@@ -173,6 +182,24 @@ class CompareLogAlignmentTests(unittest.TestCase):
 
         self.assertAlmostEqual(metrics["yaw_heading_offset_deg"], 80.0)
         self.assertAlmostEqual(metrics["yaw_heading_normalized_rmse"], 0.0)
+
+    def test_segment_profile_metrics_include_landing_rates(self):
+        segment = {"start_s": 0.0, "end_s": 2.0, "duration_s": 2.0}
+
+        metrics = compare_logs.compute_segment_profile_metrics(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([10.0, 7.0, 4.0]),
+            np.array([0.0, 1.0, 2.0]),
+            np.array([1.0, 2.0, 3.0]),
+            np.array([1.0, 2.0]),
+            np.array([20.0, -10.0]),
+            segment,
+        )
+
+        self.assertEqual(metrics["altitude_rate_mean_mps"], -3.0)
+        self.assertEqual(metrics["descent_rate_mean_mps"], 3.0)
+        self.assertEqual(metrics["horizontal_speed_mean_mps"], 2.0)
+        self.assertEqual(metrics["yaw_rate_abs_mean_deg_s"], 15.0)
 
 
 if __name__ == "__main__":

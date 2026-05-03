@@ -48,21 +48,23 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Heading-normalized yaw metrikleri eklendi.
-  - scripts/compare_logs.py artik global ve segment bazli
-    yaw_heading_offset_deg ve yaw_heading_normalized_rmse alanlarini uretiyor.
-  - yaw_heading_normalized_rmse, circular yaw farkindan ortalama heading
-    offset'ini cikararak kalan yaw profil farkini olcuyor.
-  - Mevcut yaw_rmse korunuyor; yeni metrik ek analiz alani olarak raporlaniyor.
-  - scripts/report_comparison.py Markdown/CSV raporlarina yeni yaw heading
-    offset ve heading-normalized RMSE alanlarini ekliyor.
-  - README.md ve docs/architecture.md yeni metrikleri anlatacak sekilde
+- Landing fazi icin profil metrikleri eklendi.
+  - scripts/compare_logs.py artik segment bazli sim_profile ve real_profile
+    alanlarini uretiyor.
+  - Profil alanlari:
+    altitude_rate_mean_mps, descent_rate_mean_mps,
+    horizontal_speed_mean_mps, yaw_rate_abs_mean_deg_s.
+  - Yaw-rate circular yaw farkindan turetiliyor; 179/-179 derece gecisleri
+    yanlis buyuk rate uretmiyor.
+  - scripts/report_comparison.py Markdown/CSV raporlarina Segment Profile
+    Metrics tablosu ekliyor.
+  - README.md ve docs/architecture.md profil metriklerini anlatacak sekilde
     guncellendi.
-  - tests/test_compare_logs.py ve tests/test_report_comparison.py yeni alanlar
-    icin genisletildi.
+  - tests/test_compare_logs.py ve tests/test_report_comparison.py profil
+    metrikleri icin genisletildi.
   - Testler calistirildi:
     python3 -m unittest discover -s tests
-    Sonuc: 16 test OK.
+    Sonuc: 18 test OK.
   - 31 m takeoff-aligned compare tekrar uretildi:
     python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
       --alignment takeoff
@@ -76,27 +78,27 @@ Son Yapilan Is
     python3 scripts/report_comparison.py
       --metrics
         results/comparisons/public_log_31m_takeoff_aligned_metrics.json
-  - Sonuc:
-    global yaw_heading_offset_deg=-98.249214,
-    global yaw_heading_normalized_rmse=72.416465.
-    takeoff_climb yaw_heading_offset_deg=-72.706178,
-    takeoff_climb yaw_heading_normalized_rmse=4.578154.
-    hover_cruise yaw_heading_offset_deg=-131.911009,
-    hover_cruise yaw_heading_normalized_rmse=52.897664.
-    landing yaw_heading_offset_deg=-0.485843,
-    landing yaw_heading_normalized_rmse=90.741277.
-  - Yorum: Takeoff/climb yaw farkinin buyuk kismi sabit heading offset gibi
-    gorunuyor. Landing fazinda heading normalization fayda saglamiyor; asil
-    fark inis profili veya gorev yonelimi davranisindan geliyor olabilir.
+  - Landing profil sonucu:
+    sim descent_rate_mean_mps=1.188515,
+    real descent_rate_mean_mps=0.202797.
+    sim horizontal_speed_mean_mps=0.015105,
+    real horizontal_speed_mean_mps=2.123823.
+    sim yaw_rate_abs_mean_deg_s=0.099593,
+    real yaw_rate_abs_mean_deg_s=10.074640.
+  - Yorum: Real landing simden cok daha yavas iniyor, ayni zamanda belirgin
+    yatay hiz ve yaw-rate tasiyor. Landing altitude/yaw farkinin ana kaynagi
+    sadece sure farki degil, real logun hareketli/yonelen inis profili olabilir.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Landing fazi farkini derinlestir
-    - Landing segmentinde altitude_rmse ve yaw_heading_normalized_rmse yuksek.
-    - Real log landing suresi simden yaklasik 5.859x uzun.
-    - Sonraki adim olarak landing segmentinde descent rate, horizontal speed
-      ve yaw-rate metrikleri eklenebilir.
+1. Landing davranisini eslestirecek sim senaryosu tasarla
+    - Real landing daha yavas, daha yatay hareketli ve daha yuksek yaw-rate'e
+      sahip.
+    - Mevcut MAVSDK mission akisi duz takeoff/hover/land oldugu icin real log
+      landing profiline benzemiyor.
+    - Sonraki adim olarak landing oncesi yatay hareket/yaw komutu iceren yeni
+      bir scenario veya mission modu eklemeyi degerlendir.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

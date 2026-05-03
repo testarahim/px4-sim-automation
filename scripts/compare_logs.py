@@ -182,6 +182,15 @@ def get_velocity(ulog):
     return time_s, speed
 
 
+def get_horizontal_speed(ulog):
+    data = ulog.get_dataset("vehicle_local_position")
+    time_s = relative_time(data.data["timestamp"])
+    vx = data.data["vx"]
+    vy = data.data["vy"]
+    horizontal_speed = np.sqrt(vx**2 + vy**2)
+    return time_s, horizontal_speed
+
+
 def get_attitude(ulog):
     data = ulog.get_dataset("vehicle_attitude")
     time_s = relative_time(data.data["timestamp"])
@@ -242,6 +251,18 @@ def compute_heading_normalized_yaw_metrics(sim_yaw, real_yaw):
         "yaw_heading_offset_deg": heading_offset,
         "yaw_heading_normalized_rmse": float(np.sqrt(np.mean(residual**2))),
     }
+
+
+def compute_yaw_rate(time_s, yaw_deg):
+    if time_s.size < 2:
+        return np.array([]), np.array([])
+    dt = np.diff(time_s)
+    valid = dt > 0
+    if not np.any(valid):
+        return np.array([]), np.array([])
+    yaw_delta = angular_difference_deg(yaw_deg[1:], yaw_deg[:-1])
+    yaw_rate = yaw_delta[valid] / dt[valid]
+    return time_s[1:][valid], yaw_rate
 
 
 def first_time_at_or_above(time_s, values, threshold):
@@ -461,6 +482,17 @@ def segment_values(time_s, values, segment):
     return normalized_t, segment_data
 
 
+def raw_segment_values(time_s, values, segment):
+    if segment is None:
+        return None, None
+    mask = (time_s >= segment["start_s"]) & (time_s <= segment["end_s"])
+    segment_t = time_s[mask]
+    segment_data = values[mask]
+    if segment_t.size < MIN_SEGMENT_SAMPLES:
+        return None, None
+    return segment_t, segment_data
+
+
 def compare_segment_series(
     sim_t,
     sim_values,
@@ -546,6 +578,71 @@ def compare_segment_heading_normalized_yaw(
     real_interp = interp1d(real_segment_t, real_segment_yaw, bounds_error=True)
     real_aligned_yaw = real_interp(sim_aligned_t)
     return compute_heading_normalized_yaw_metrics(sim_aligned_yaw, real_aligned_yaw)
+
+
+def mean_or_none(values):
+    if values is None or values.size == 0:
+        return None
+    return finite_float(np.mean(values))
+
+
+def compute_segment_profile_metrics(
+    altitude_t,
+    altitude,
+    horizontal_speed_t,
+    horizontal_speed,
+    yaw_rate_t,
+    yaw_rate,
+    segment,
+):
+    altitude_segment_t, altitude_segment = raw_segment_values(
+        altitude_t,
+        altitude,
+        segment,
+    )
+    _, horizontal_speed_segment = raw_segment_values(
+        horizontal_speed_t,
+        horizontal_speed,
+        segment,
+    )
+    _, yaw_rate_segment = raw_segment_values(
+        yaw_rate_t,
+        yaw_rate,
+        segment,
+    )
+
+    altitude_rate = None
+    descent_rate = None
+    if altitude_segment_t is not None:
+        duration = altitude_segment_t[-1] - altitude_segment_t[0]
+        if duration > 0:
+            altitude_rate = (altitude_segment[-1] - altitude_segment[0]) / duration
+            descent_rate = max(0.0, -altitude_rate)
+
+    return {
+        "altitude_rate_mean_mps": finite_float(altitude_rate),
+        "descent_rate_mean_mps": finite_float(descent_rate),
+        "horizontal_speed_mean_mps": mean_or_none(horizontal_speed_segment),
+        "yaw_rate_abs_mean_deg_s": (
+            mean_or_none(np.abs(yaw_rate_segment))
+            if yaw_rate_segment is not None
+            else None
+        ),
+    }
+
+
+def add_segment_profile_metrics(segment_metrics, segments, profile_series):
+    for segment_name, segment_metric in segment_metrics.items():
+        for side in ("sim", "real"):
+            segment_metric[f"{side}_profile"] = compute_segment_profile_metrics(
+                profile_series[side]["altitude_t"],
+                profile_series[side]["altitude"],
+                profile_series[side]["horizontal_speed_t"],
+                profile_series[side]["horizontal_speed"],
+                profile_series[side]["yaw_rate_t"],
+                profile_series[side]["yaw_rate"],
+                segments[side].get(segment_name),
+            )
 
 
 def compute_segment_rmse(series, segments):
@@ -663,6 +760,19 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         plot_dir,
     )
 
+    sim_t_horizontal_speed, sim_horizontal_speed = get_horizontal_speed(sim_ulog)
+    real_t_horizontal_speed, real_horizontal_speed = get_horizontal_speed(real_ulog)
+    sim_t_horizontal_speed_shifted = shifted_time(
+        sim_t_horizontal_speed,
+        alignment,
+        "sim",
+    )
+    real_t_horizontal_speed_shifted = shifted_time(
+        real_t_horizontal_speed,
+        alignment,
+        "real",
+    )
+
     sim_t, sim_roll, sim_pitch, sim_yaw = get_attitude(sim_ulog)
     real_t, real_roll, real_pitch, real_yaw = get_attitude(real_ulog)
     sim_t_attitude_shifted = shifted_time(sim_t, alignment, "sim")
@@ -726,6 +836,14 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         sim_yaw_al,
         real_yaw_al,
     )
+    sim_t_yaw_rate, sim_yaw_rate = compute_yaw_rate(
+        sim_t_attitude_shifted,
+        sim_yaw,
+    )
+    real_t_yaw_rate, real_yaw_rate = compute_yaw_rate(
+        real_t_attitude_shifted,
+        real_yaw,
+    )
 
     segments = {
         "sim": detect_segments(
@@ -777,6 +895,28 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
             ),
         },
         segments,
+    )
+    add_segment_profile_metrics(
+        segment_metrics,
+        segments,
+        {
+            "sim": {
+                "altitude_t": sim_t_altitude_shifted,
+                "altitude": sim_altitude,
+                "horizontal_speed_t": sim_t_horizontal_speed_shifted,
+                "horizontal_speed": sim_horizontal_speed,
+                "yaw_rate_t": sim_t_yaw_rate,
+                "yaw_rate": sim_yaw_rate,
+            },
+            "real": {
+                "altitude_t": real_t_altitude_shifted,
+                "altitude": real_altitude,
+                "horizontal_speed_t": real_t_horizontal_speed_shifted,
+                "horizontal_speed": real_horizontal_speed,
+                "yaw_rate_t": real_t_yaw_rate,
+                "yaw_rate": real_yaw_rate,
+            },
+        },
     )
 
     return {

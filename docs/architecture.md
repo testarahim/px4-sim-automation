@@ -199,6 +199,10 @@ normalized segment time and are intentionally not folded into the global
 `overall_pass`.
 Yaw segment entries also include `yaw_heading_offset_deg` so fixed heading
 reference differences can be separated from yaw profile-shape differences.
+Segment entries include `sim_profile` and `real_profile` summaries with mean
+descent rate, mean horizontal speed, and mean absolute yaw-rate. These fields
+are useful for diagnosing landing behavior when global RMSE is dominated by
+phase duration or path-shape differences.
 
 `scripts/report_comparison.py` turns a comparison metrics JSON file into a
 Markdown report and CSV segment table. The report highlights global RMSE,
