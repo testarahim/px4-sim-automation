@@ -35,40 +35,29 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Batch runner eklendi.
-  - scripts/run_batch.py birden fazla senaryoyu sirayla calistirabiliyor.
-  - Varsayilan olarak scenarios/*.yaml dosyalarini bulup her biri icin
-    bash run.sh <scenario> komutunu cagiriyor.
-  - Her senaryo icin RUN_ID uretip mevcut artifact duzenini kullaniyor:
-    results/runs/<batch_id>_<index>_<scenario>/
-  - Her kosunun runner ciktisi batch artifact klasorune yaziliyor:
-    results/batches/<batch_id>/*.runner.log
-  - Batch sonunda summary.json ve summary.csv uretiliyor.
-  - Terminale kisa ozet tablo basiliyor.
-  - --stop-on-fail, --batch-id, --scenario-dir ve --results-dir
-    argumanlari eklendi.
-  - results/batches/ .gitignore'a eklendi.
+- Sim-vs-real karsilastirma altyapisi argumanli hale getirildi.
+  - scripts/compare_logs.py artik --sim ve --real argumanlari aliyor.
+  - --metrics ve --plot-dir argumanlari eklendi; karsilastirma ciktilari
+    gorev metrikleriyle carpismaz hale geldi.
+  - Baslangic metrikleri korunup netlestirildi:
+    altitude_rmse, velocity_rmse, roll_rmse, pitch_rmse, yaw_rmse.
+  - Threshold argumanlari eklendi:
+    --altitude-threshold, --velocity-threshold, --attitude-threshold.
+  - scripts/batch_compare.py compare_logs.py argumanlariyla uyumlu hale
+    getirildi; her sim log icin ayri metrics ve plot klasoru uretiyor.
+  - run.sh opsiyonel sim-vs-real adiminda compare_logs.py dosyasini artik
+    acik --sim/--real path'leriyle cagiriyor.
+  - results/comparisons/ .gitignore'a eklendi.
 - Hafif dogrulama yapildi:
-  - python3 -m py_compile scripts/run_batch.py
-  - python3 scripts/run_batch.py --help
-  - scripts.run_batch.resolve_scenarios ile scenarios/*.yaml kesfi
-    kontrol edildi.
-- Tam SITL batch pipeline bu adimda calistirilmadi.
+  - python3 -m py_compile scripts/compare_logs.py scripts/batch_compare.py
+  - python3 scripts/compare_logs.py --help
+  - bash -n run.sh
+- Gercek/sim .ulg karsilastirmasi bu adimda calistirilmadi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Sim-vs-real karsilastirma altyapisini duzelt
-    - scripts/compare_logs.py su an sabit path kullaniyor.
-    - Arguman alacak hale getir:
-      python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
-    - batch_compare.py ile uyumlu calissin.
-    - Baslangic metrikleri:
-      - altitude RMSE
-      - velocity RMSE
-      - roll/pitch/yaw RMSE
-
-2. README'yi guncelle
+1. README'yi guncelle
     - Kurulum:
       bash setup.sh
     - Tek kosu:
@@ -81,7 +70,7 @@ Siradaki Yapilacaklar
     - PX4_DIR farkliysa nasil calistirilacagi:
       PX4_DIR=/path/to/PX4-Autopilot bash run.sh
 
-3. Temizlik
+2. Temizlik
     - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
     - logs/, results/plots/, results/runs/ gibi generated artifacts icin
       .gitignore korunmali.

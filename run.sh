@@ -84,7 +84,11 @@ python3 scripts/analyze_log.py \
 
 if [[ -f data/real/real_log.ulg && -f data/sim/sim_log.ulg ]]; then
     echo "Sim vs Real karşılaştırılıyor..."
-    python3 scripts/compare_logs.py
+    python3 scripts/compare_logs.py \
+        --sim "$PROJECT_DIR/data/sim/sim_log.ulg" \
+        --real "$PROJECT_DIR/data/real/real_log.ulg" \
+        --metrics "$RUN_DIR/compare_metrics.json" \
+        --plot-dir "$RUN_DIR/compare_plots"
 else
     echo "Sim vs Real karşılaştırması atlandı: data/real/real_log.ulg ve data/sim/sim_log.ulg gerekiyor."
 fi
