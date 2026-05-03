@@ -35,40 +35,21 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- compare_logs.py threshold degerlerini scenario/config YAML'den okuyabilir
-  hale getirildi.
-  - scripts/compare_logs.py --config argumani aliyor.
-  - Config icindeki thresholds.velocity_rmse ve thresholds.attitude_rmse
-    degerleri sim-vs-real pass/fail icin kullaniliyor.
-  - Altitude compare esigi icin once thresholds.altitude_rmse, yoksa mevcut
-    senaryo dosyalarindaki thresholds.max_altitude_error_m kullaniliyor.
-  - CLI argumanlari (--altitude-threshold, --velocity-threshold,
-    --attitude-threshold) config uzerine override etmeye devam ediyor.
-  - run.sh opsiyonel sim-vs-real adimina secilen senaryo/config dosyasini
-    iletiyor.
-  - scripts/batch_compare.py --config argumani aliyor ve compare_logs.py
-    cagrilarina iletiyor.
-  - README compare komutlari --config ornekleriyle guncellendi.
-- Hafif dogrulama yapildi:
-  - python3 -m py_compile scripts/compare_logs.py scripts/batch_compare.py
-  - python3 scripts/compare_logs.py --help
-  - python3 scripts/batch_compare.py --help
-  - bash -n run.sh
-  - load_config/resolve_thresholds ile scenario YAML okuma ve CLI override
-    davranisi kontrol edildi.
+- docs/architecture.md yeni akisa gore genisletildi.
+  - Scenario tabanli tek kosu akisi belgelendi.
+  - Batch akis diyagrami ve batch artifact duzeni eklendi.
+  - run artifact klasoru, latest alias dosyalari ve generated artifact
+    prensibi aciklandi.
+  - scripts/start_sitl.py, run.sh, scripts/run_batch.py,
+    scripts/compare_logs.py ve scripts/batch_compare.py rolleri aciklandi.
+  - analyze_log.py metrikleri ve pass/fail threshold kaynaklari belgelendi.
+  - Sim-vs-real compare akisi ve Flight Review public log havuzu plani
+    mimariye eklendi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. docs/architecture.md dosyasini yeni akisa gore genislet
-    - Scenario tabanli tek kosu akisiyla batch akisinin mimari diyagramini
-      ekle.
-    - Artifact klasorleri, alias dosyalari, metrics/plots ve sim-vs-real
-      compare adimini belgeye ekle.
-    - scripts/start_sitl.py, run.sh, scripts/run_batch.py,
-      scripts/compare_logs.py ve scripts/batch_compare.py rollerini acikla.
-
-2. Flight Review public log downloader entegrasyonunu planla
+1. Flight Review public log downloader entegrasyonunu planla
     - Incelenen kaynak:
       https://github.com/PX4/flight_review/blob/main/app/download_logs.py
     - Bu script PX4 Flight Review public log veritabanindan .ulg loglari
@@ -87,7 +68,7 @@ Siradaki Yapilacaklar
       olustur; dogrudan upstream scripti kopyalamadan once lisans ve
       bagimliliklari kontrol et.
 
-3. Ileride eklenebilecek iyilestirmeler
+2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
     - compare_logs.py icin kucuk fixture veya mock veriyle otomatik test
