@@ -75,6 +75,8 @@ The legacy default config remains at `config/sim_config.yaml`.
 - `scripts/analyze_log.py`: Computes altitude metrics, plots altitude, and writes `metrics.json`.
 - `scripts/run_batch.py`: Runs multiple scenarios sequentially and writes batch summaries.
 - `scripts/compare_logs.py`: Compares one simulation log with one real log.
+- `scripts/report_comparison.py`: Converts comparison metrics JSON into
+  human-readable Markdown and CSV reports.
 - `scripts/batch_compare.py`: Runs `compare_logs.py` over multiple simulation logs.
 - `scripts/download_public_logs.py`: Downloads filtered public PX4 Flight Review logs into the local real-log pool.
 - `scripts/inspect_log_candidates.py`: Pre-analyzes downloaded real logs for
@@ -194,6 +196,11 @@ each log's altitude profile using the scenario target altitude, tolerance,
 hover time, and landing altitude threshold. Segment RMSE values are computed on
 normalized segment time and are intentionally not folded into the global
 `overall_pass`.
+
+`scripts/report_comparison.py` turns a comparison metrics JSON file into a
+Markdown report and CSV segment table. The report highlights global RMSE,
+segment durations, real/sim duration ratios, segment RMSE values, and the
+largest altitude and duration differences.
 
 Thresholds can come from a scenario/config file. CLI threshold arguments still
 override config values.

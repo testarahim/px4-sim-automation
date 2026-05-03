@@ -154,6 +154,13 @@ It also writes phase-based metrics under `segments` for `takeoff_climb`,
 `overall_pass` and compare each phase on normalized segment time so logs with
 different phase durations can still be inspected.
 
+Generate a readable Markdown and CSV report from comparison metrics:
+
+```bash
+python3 scripts/report_comparison.py \
+  --metrics results/comparisons/public_log_31m_takeoff_aligned_metrics.json
+```
+
 Default comparison outputs:
 
 - `results/compare_metrics.json`
