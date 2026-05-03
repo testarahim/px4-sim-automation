@@ -148,6 +148,26 @@ Pass a scenario/config file to batch comparison:
 python3 scripts/batch_compare.py --config scenarios/takeoff_land_20m.yaml
 ```
 
+Inspect public PX4 Flight Review logs before downloading:
+
+```bash
+python3 scripts/download_public_logs.py \
+  --print \
+  --mav-type Quadrotor \
+  --flight-modes Mission \
+  --max-num 10
+```
+
+Download a small real-log dataset:
+
+```bash
+python3 scripts/download_public_logs.py \
+  --mav-type Quadrotor \
+  --flight-modes Mission \
+  --rating Good \
+  --max-num 10
+```
+
 ## Configuration
 
 Scenario YAML files define:

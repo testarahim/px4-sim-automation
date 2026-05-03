@@ -35,31 +35,41 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Flight Review public log downloader entegrasyonu icin tasarim dokumani
-  eklendi.
-  - docs/download_public_logs.md olusturuldu.
-  - Upstream kaynak, public API sekli, guvenli varsayilanlar ve filtreler
-    belgelendi.
-  - Indirme hedefi data/real/public_logs/ olarak belirlendi.
-  - data/real/public_logs/ .gitignore'a eklendi.
-  - Ilk uygulama tercihi upstream scripti kopyalamak yerine proje-native
-    wrapper yazmak olarak belirlendi.
+- scripts/download_public_logs.py eklendi.
+  - PX4 Flight Review public dbinfo API'sinden log metadata'si aliyor.
+  - Varsayilan hedef data/real/public_logs/.
+  - Guvenli varsayilanlar:
+    --max-num 10, --delay 6, skip existing logs.
+  - --print modu ile indirmeden metadata inceleme destekleniyor.
+  - Filtreler eklendi:
+    --mav-type, --flight-modes, --rating, --airframe-type,
+    --airframe-name, --git-hash, --source, --log-id,
+    --latest-per-vehicle.
+  - Buyuk indirme uyarisi, overwrite kontrolu ve retry/rate-limit davranisi
+    eklendi.
+  - requirements.txt icine requests eklendi.
+  - README, docs/architecture.md ve docs/download_public_logs.md guncellendi.
+- Dogrulama yapildi:
+  - python3 -m py_compile scripts/download_public_logs.py
+  - python3 scripts/download_public_logs.py --help
+  - Sahte metadata ile filtreleme ve latest-per-vehicle testi.
+  - Gercek Flight Review API ile print-only metadata testi:
+    python3 scripts/download_public_logs.py --print --max-num 1
+  - Gercek Flight Review API ile Quadrotor + Mission print-only filtre testi:
+    python3 scripts/download_public_logs.py --print --max-num 1
+      --mav-type Quadrotor --flight-modes Mission
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. scripts/download_public_logs.py ekle
-    - docs/download_public_logs.md tasarimina gore proje-native wrapper yaz.
-    - Varsayilanlar:
-      --max-num 10
-      --download-folder data/real/public_logs/
-      --delay 6
-    - Desteklenecek ilk modlar:
-      --print, --overwrite, --mav-type, --flight-modes, --rating,
-      --airframe-type, --airframe-name, --git-hash, --source, --log-id,
-      --latest-per-vehicle.
-    - Buyuk indirme uyarisini ve rate limit beklemesini koru.
-    - Uygulama sonrasi README'ye kisa kullanim ornegi ekle.
+1. Public log downloader icin indirme dogrulamasi yap
+    - Kucuk ve guvenli bir indirme denemesi:
+      python3 scripts/download_public_logs.py --mav-type Quadrotor
+        --flight-modes Mission --max-num 1 --delay 6
+    - Indirilen .ulg dosyasinin data/real/public_logs/ altina geldigini
+      dogrula.
+    - Ardindan bir sim artifact ile compare_logs.py kullanarak manuel
+      sim-vs-real denemesi yap.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

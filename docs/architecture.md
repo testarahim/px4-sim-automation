@@ -75,6 +75,7 @@ The legacy default config remains at `config/sim_config.yaml`.
 - `scripts/run_batch.py`: Runs multiple scenarios sequentially and writes batch summaries.
 - `scripts/compare_logs.py`: Compares one simulation log with one real log.
 - `scripts/batch_compare.py`: Runs `compare_logs.py` over multiple simulation logs.
+- `scripts/download_public_logs.py`: Downloads filtered public PX4 Flight Review logs into the local real-log pool.
 
 ## Artifacts
 
@@ -203,15 +204,18 @@ The intended project role is:
 PX4 Flight Review public logs
     |
     v
+scripts/download_public_logs.py
+    |
+    v
 data/real/public_logs/
     |
     v
 scripts/compare_logs.py / scripts/batch_compare.py
 ```
 
-Before adding code for this, verify license obligations, dependencies, server
-rate limits, and the desired filters for vehicle type, flight mode, rating,
-airframe, source, or PX4 git hash.
+The downloader uses conservative defaults, supports print-only inspection, and
+keeps downloaded logs out of git. Keep focused filters and download delays to
+respect public Flight Review hosting.
 
 ## Operational Notes
 

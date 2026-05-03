@@ -50,6 +50,9 @@ data/real/public_logs/
 scripts/compare_logs.py / scripts/batch_compare.py
 ```
 
+Implementation status: `scripts/download_public_logs.py` provides the first
+project-native wrapper for this flow.
+
 The downloaded logs should be treated as input data, not as source files. They
 must stay out of git unless a tiny explicit fixture is intentionally added later
 for tests.
@@ -148,28 +151,19 @@ python3 scripts/compare_logs.py \
   --real data/real/public_logs/<log_id>.ulg
 ```
 
-## Implementation Options
+## Implementation Choice
 
-Option A: Write a project-native wrapper.
+The project uses a project-native wrapper.
 
 - Keep only the features needed by this project.
 - Use the same public API model as Flight Review.
 - Avoid copying upstream code directly.
 - Easier to test and maintain inside this repository.
 
-Option B: Vendor or adapt the upstream script.
-
-- Preserve upstream behavior more closely.
-- Requires checking license and attribution.
-- May bring Flight Review-specific imports or assumptions into this project.
-
-Preferred first implementation: Option A.
-
 ## License And Attribution
 
-Before copying upstream code, check the Flight Review repository license and
-preserve required attribution. If the project only implements a new wrapper that
-uses the public API shape, still reference the upstream repository in the docs.
+This project does not vendor the upstream downloader script. It uses the public
+API shape and references the upstream repository in the docs.
 
 ## Rate Limits And Etiquette
 
