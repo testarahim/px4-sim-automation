@@ -14,6 +14,10 @@ SHUTDOWN_COMMAND_TIMEOUT_S = 8
 SIGINT_TIMEOUT_S = 8
 SIGTERM_TIMEOUT_S = 5
 OUTPUT_READ_SIZE = 4096
+ROOTFS_SYMLINKS = {
+    "etc": PX4_DIR / "build" / "px4_sitl_default" / "etc",
+    "test_data": PX4_DIR / "test_data",
+}
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 PX4_PROMPT = "pxh>"
@@ -115,6 +119,8 @@ def start_sitl():
     if not PX4_DIR.exists():
         raise FileNotFoundError(f"PX4 dizini bulunamadı: {PX4_DIR}")
 
+    cleanup_rootfs_symlinks()
+
     env = os.environ.copy()
     env.setdefault("HEADLESS", "1")
 
@@ -132,6 +138,23 @@ def start_sitl():
         text=False,
         preexec_fn=os.setsid,
     )
+
+
+def cleanup_rootfs_symlinks():
+    rootfs_dir = PX4_DIR / "build" / "px4_sitl_default" / "rootfs"
+    for link_name, expected_target in ROOTFS_SYMLINKS.items():
+        link_path = rootfs_dir / link_name
+        if not link_path.is_symlink():
+            continue
+
+        try:
+            current_target = link_path.resolve(strict=False)
+        except OSError:
+            current_target = None
+
+        if current_target == expected_target:
+            link_path.unlink()
+            print(f"Stale PX4 rootfs symlink temizlendi: {link_path}", flush=True)
 
 
 def main():
