@@ -184,6 +184,15 @@ python3 scripts/download_public_logs.py \
   --max-num 10
 ```
 
+Inspect downloaded real-log candidates before comparison:
+
+```bash
+python3 scripts/inspect_log_candidates.py \
+  --log-dir data/real/public_logs \
+  --ground-altitude-m 0.3 \
+  --takeoff-altitude-m 1.0
+```
+
 ## Configuration
 
 Scenario YAML files define:

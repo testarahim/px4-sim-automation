@@ -76,6 +76,8 @@ The legacy default config remains at `config/sim_config.yaml`.
 - `scripts/compare_logs.py`: Compares one simulation log with one real log.
 - `scripts/batch_compare.py`: Runs `compare_logs.py` over multiple simulation logs.
 - `scripts/download_public_logs.py`: Downloads filtered public PX4 Flight Review logs into the local real-log pool.
+- `scripts/inspect_log_candidates.py`: Pre-analyzes downloaded real logs for
+  altitude-based candidate quality before comparison.
 
 ## Artifacts
 
@@ -228,6 +230,19 @@ scripts/compare_logs.py / scripts/batch_compare.py
 The downloader uses conservative defaults, supports print-only inspection, and
 keeps downloaded logs out of git. Keep focused filters and download delays to
 respect public Flight Review hosting.
+
+Downloaded real-log candidates can be inspected before comparison:
+
+```bash
+python3 scripts/inspect_log_candidates.py \
+  --log-dir data/real/public_logs \
+  --ground-altitude-m 0.3 \
+  --takeoff-altitude-m 1.0
+```
+
+The inspector reports altitude-derived quality fields such as
+`initial_altitude_m`, `max_altitude_m`, `final_altitude_m`, `airborne_start`,
+`takeoff_detected`, and `landing_detected`.
 
 ## Operational Notes
 

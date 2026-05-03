@@ -41,67 +41,61 @@ Mevcut Durum
   --alignment takeoff modunu destekliyor; bu mod iki logu ilk takeoff altitude
   esigi gecisine gore kaydiriyor ve kullanilan offsetleri metrics JSON'a
   yaziyor.
+- scripts/inspect_log_candidates.py indirilen real .ulg adaylarini altitude
+  serisi uzerinden on analiz ediyor; initial/max/final altitude, airborne
+  start, takeoff_detected ve landing_detected alanlarini JSON/CSV olarak
+  uretiyor.
 
 Son Yapilan Is
 --------------
-- Compare zaman hizalamasi icin opsiyonel takeoff alignment eklendi.
-  - Yeni CLI opsiyonlari:
-    --alignment {time-zero,takeoff}
-    --takeoff-threshold-m
-  - Varsayilan davranis time-zero olarak korundu.
-  - --alignment takeoff verildiginde iki logda altitude ilk kez esigi gectigi
-    zaman bulunuyor; sim/real timestamp'leri bu offsetlerle kaydiriliyor.
-  - Scenario config varsa takeoff threshold varsayilani mission takeoff
-    altitude degerinden turetiliyor; takeoff_land_20m icin esik 1.0 m.
-  - metrics JSON artik alignment.method, takeoff_threshold_m,
-    sim_time_offset_s, real_time_offset_s ve her seri icin ortak zaman araligi
-    ile sample_count bilgisini iceriyor.
-  - Kucuk unittest eklendi:
-    tests/test_compare_logs.py
-  - Filtreli public log ile time-zero compare tekrar calistirildi:
-    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
-      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
-      --real data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
-      --metrics results/comparisons/public_log_time_zero_metrics.json
-      --plot-dir results/plots/comparisons/public_log_time_zero
-  - Time-zero metrikleri:
-    altitude_rmse=7.272608, velocity_rmse=3.708981,
-    roll_rmse=7.102740, pitch_rmse=12.452757, yaw_rmse=113.927472.
-  - Ayni log ile takeoff-aligned compare calistirildi:
-    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
-      --alignment takeoff
-      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
-      --real data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
-      --metrics results/comparisons/public_log_takeoff_aligned_metrics.json
-      --plot-dir results/plots/comparisons/public_log_takeoff_aligned
-  - Takeoff-aligned metrikleri:
-    altitude_rmse=6.932978, velocity_rmse=4.346891,
-    roll_rmse=7.202829, pitch_rmse=13.435280, yaw_rmse=112.093282.
-  - Takeoff alignment offsetleri:
-    sim_time_offset_s=7.544, real_time_offset_s=0.0.
-    Real log ilk ornekte zaten 1.0 m esiginin ustunde oldugu icin bu public
-    log gercek takeoff baslangicini icermiyor olabilir.
-  - Sonuc overall_pass=false. Bu beklenen bir durum; takeoff hizalamasi
-    teknik olarak calisiyor ama public log gorev profili hala SITL
-    takeoff_land_20m ile bire bir eslesmiyor.
-  - README.md ve docs/architecture.md compare alignment ornekleriyle
+- Public log adaylari airborne-start durumuna gore on analiz edildi.
+  - Yeni arac:
+    scripts/inspect_log_candidates.py
+  - Arac indirilen .ulg loglari icin su alanlari uretiyor:
+    duration_s, initial_altitude_m, max_altitude_m, final_altitude_m,
+    min_altitude_m, altitude_range_m, starts_near_ground, ends_near_ground,
+    airborne_start, takeoff_detected, landing_detected, takeoff_time_s,
+    landing_time_s.
+  - Varsayilan komut:
+    python3 scripts/inspect_log_candidates.py --log-dir data/real/public_logs
+      --ground-altitude-m 0.3 --takeoff-altitude-m 1.0
+  - Ciktilar:
+    results/real_log_candidates.json
+    results/real_log_candidates.csv
+    Bu dosyalar generated artifact olarak git disinda tutuluyor.
+  - Mevcut indirilen iki public log analiz edildi:
+    2eb639d6-3086-4425-a241-003bcf67be91:
+      duration_s=81.608066, initial_altitude_m=4.315186,
+      max_altitude_m=15.863281, final_altitude_m=2.604248,
+      airborne_start=true, takeoff_detected=false, landing_detected=false.
+    8f115019-8883-4c61-ae8a-e2fb82acff51:
+      duration_s=21.502844, initial_altitude_m=10.845215,
+      max_altitude_m=15.226746, final_altitude_m=12.135437,
+      airborne_start=true, takeoff_detected=false, landing_detected=false.
+  - Sonuc: mevcut public loglar takeoff_land senaryosu icin zayif aday;
+    ikisi de yerden baslamiyor ve landing imzasi gostermiyor.
+  - README.md ve docs/architecture.md candidate inspector ornekleriyle
     guncellendi.
+  - tests/test_inspect_log_candidates.py eklendi.
   - Dogrulama:
-    python3 -m py_compile scripts/compare_logs.py
-    python3 -m unittest tests/test_compare_logs.py
-    python3 scripts/compare_logs.py --help
+    python3 -m py_compile scripts/inspect_log_candidates.py
+    python3 -m unittest discover -s tests
+    python3 scripts/inspect_log_candidates.py --log-dir data/real/public_logs
+      --ground-altitude-m 0.3 --takeoff-altitude-m 1.0
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Public log aday secimini airborne-start durumuna gore iyilestir
-    - Bazi public loglar ilk ornekte takeoff esiginin ustunde basliyor.
-      Bu loglar kalkis fazini icermedigi icin takeoff_land senaryosuyla
-      kiyaslamada zayif aday olabilir.
-    - Indirilen .ulg uzerinden on analiz yapip initial_altitude_m,
-      max_altitude_m, final_altitude_m ve landing/takeoff imzasi cikar.
-    - Downloader sonrasi aday seciminde initial_altitude_m <= 0.3 gibi bir
-      kalite kuralini degerlendir.
+1. Near-ground baslayan public log adayi bul
+    - Mevcut iki public log airborne-start oldugu icin takeoff_land
+      karsilastirmasi icin uygun degil.
+    - Yeni kalite filtreleriyle 3-5 logluk kucuk bir aday set indir.
+    - Hemen ardindan scripts/inspect_log_candidates.py ile ele:
+      starts_near_ground=true, takeoff_detected=true ve mumkunse
+      landing_detected=true olan adaylari one cikar.
+    - Uygun aday bulunursa takeoff-aligned compare'i tekrar calistir.
+    - Uygun aday bulunamazsa public log havuzunda takeoff_land benzeri
+      gorev bulmak icin daha dar metadata/ULog on analiz stratejisi belirle.
 
 2. Compare faz karsilastirmasini derinlestir
     - Takeoff alignment yalnizca baslangic offsetini duzeltiyor.

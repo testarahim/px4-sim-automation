@@ -6,6 +6,7 @@ results/runs/
 results/batches/
 results/comparisons/
 results/plots/
+results/real_log_candidates.*
 scripts/__pycache__/
 __pycache__/
 *.pyc
