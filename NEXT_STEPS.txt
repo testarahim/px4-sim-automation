@@ -48,40 +48,51 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Segment karsilastirmasi yorumlanabilir rapora donusturuldu.
-  - Yeni script eklendi:
-    scripts/report_comparison.py
-  - Script compare metrics JSON dosyasindan Markdown rapor ve CSV segment
-    tablosu uretiyor.
-  - Rapor icerigi:
-    global RMSE, pass/fail alanlari, alignment offsetleri, segment sureleri,
-    real/sim duration ratio, segment bazli altitude/velocity/roll/pitch/yaw
-    RMSE ve en buyuk fark ozeti.
-  - README.md ve docs/architecture.md rapor scriptini anlatacak sekilde
-    guncellendi.
-  - tests/test_report_comparison.py eklendi.
+- Yaw RMSE aci wrap-around etkisi duzeltildi.
+  - scripts/compare_logs.py icine dairesel derece farki eklendi.
+  - yaw_rmse artik 179/-179 derece gibi sinir gecislerinde 358 derece yerine
+    en kisa aci farkini kullaniyor.
+  - Global yaw RMSE ve segment bazli yaw RMSE ayni dairesel hesaplamayi
+    kullaniyor.
+  - Roll/pitch metrikleri degistirilmedi; yalnizca yaw acisi dairesel
+    degerlendiriliyor.
+  - README.md ve docs/architecture.md yaw_rmse'nin circular angle difference
+    kullandigini belirtecek sekilde guncellendi.
+  - tests/test_compare_logs.py icine circular yaw RMSE testleri eklendi.
   - Testler calistirildi:
     python3 -m unittest discover -s tests
-    Sonuc: 10 test OK.
-  - 31 m takeoff-aligned compare metriklerinden rapor uretildi:
+    Sonuc: 13 test OK.
+  - 31 m takeoff-aligned compare tekrar uretildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
+      --alignment takeoff
+      --sim results/runs/20260503_194755/px4.ulg
+      --real data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
+      --metrics
+        results/comparisons/public_log_31m_takeoff_aligned_metrics.json
+      --plot-dir
+        results/plots/comparisons/public_log_31m_takeoff_aligned
+  - Rapor tekrar guncellendi:
     python3 scripts/report_comparison.py
       --metrics
         results/comparisons/public_log_31m_takeoff_aligned_metrics.json
-  - Uretilen rapor dosyalari:
-    results/comparisons/public_log_31m_takeoff_aligned_metrics_report.md
-    results/comparisons/public_log_31m_takeoff_aligned_metrics_segments.csv
-  - Rapor ozeti:
-    landing segmenti en buyuk altitude RMSE'ye sahip: 13.076.
-    landing segmenti en buyuk real/sim duration ratio'ya sahip: 5.859x.
+  - Sonuc:
+    global yaw_rmse 139.826337 -> 105.236701 oldu.
+    takeoff_climb yaw_rmse 72.864666 -> 72.792593 oldu.
+    hover_cruise yaw_rmse 198.662197 -> 128.604930 oldu.
+    landing yaw_rmse 99.989504 -> 90.660283 oldu.
+  - Yorum: Wrap-around duzeltmesi yaw metriklerini daha dogru hale getirdi,
+    ancak yaw farki halen yuksek; fark sadece aci siniri gecisinden
+    kaynaklanmiyor.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Yaw RMSE aci wrap-around etkisini incele
-    - Mevcut yaw RMSE dogrudan derece farki uzerinden hesaplaniyor.
-    - 179 derece ile -179 derece gibi durumlarda gercek fark 2 dereceyken
-      naive fark 358 derece gorunebilir.
-    - Gerekirse yaw farkini dairesel aci farki olarak hesapla ve test ekle.
+1. Attitude/yaw farkinin kaynagini derinlestir
+    - Yaw farki circular hesaplamaya ragmen yuksek kaliyor.
+    - Real log ile sim logun heading/yaw referansi, frame farki veya gorev
+      yonelimi farkli olabilir.
+    - Sonraki adim olarak yaw mean offset alignment veya heading-normalized
+      compare secenegi degerlendir.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

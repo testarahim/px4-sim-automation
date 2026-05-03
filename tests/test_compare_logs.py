@@ -7,6 +7,26 @@ from scripts import compare_logs
 
 
 class CompareLogAlignmentTests(unittest.TestCase):
+    def test_circular_rmse_uses_shortest_yaw_difference(self):
+        rmse = compare_logs.compute_circular_rmse_deg(
+            np.array([179.0, -179.0, 10.0]),
+            np.array([-179.0, 179.0, 20.0]),
+        )
+
+        expected = np.sqrt(np.mean(np.array([-2.0, 2.0, -10.0]) ** 2))
+        self.assertAlmostEqual(rmse, expected)
+
+    def test_yaw_alignment_can_use_circular_rmse(self):
+        _, _, _, rmse, _ = compare_logs.align_and_compare(
+            np.array([0.0, 1.0]),
+            np.array([179.0, -179.0]),
+            np.array([0.0, 1.0]),
+            np.array([-179.0, 179.0]),
+            compare_logs.compute_circular_rmse_deg,
+        )
+
+        self.assertEqual(rmse, 2.0)
+
     def test_resolve_takeoff_alignment_uses_first_threshold_crossing(self):
         args = argparse.Namespace(alignment="takeoff", takeoff_threshold_m=1.0)
 
@@ -103,6 +123,23 @@ class CompareLogAlignmentTests(unittest.TestCase):
         self.assertEqual(rmse, 0.0)
         self.assertTrue(details["available"])
         self.assertEqual(details["sample_count"], 3)
+
+    def test_compare_segment_series_can_use_circular_rmse(self):
+        sim_segment = {"start_s": 0.0, "end_s": 1.0, "duration_s": 1.0}
+        real_segment = {"start_s": 0.0, "end_s": 1.0, "duration_s": 1.0}
+
+        rmse, details = compare_logs.compare_segment_series(
+            np.array([0.0, 1.0]),
+            np.array([179.0, -179.0]),
+            sim_segment,
+            np.array([0.0, 1.0]),
+            np.array([-179.0, 179.0]),
+            real_segment,
+            compare_logs.compute_circular_rmse_deg,
+        )
+
+        self.assertEqual(rmse, 2.0)
+        self.assertTrue(details["available"])
 
 
 if __name__ == "__main__":

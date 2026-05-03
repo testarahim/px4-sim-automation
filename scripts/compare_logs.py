@@ -209,6 +209,17 @@ def compute_rmse(left, right):
     return float(np.sqrt(np.mean((left - right) ** 2)))
 
 
+def angular_difference_deg(left, right):
+    return (left - right + 180.0) % 360.0 - 180.0
+
+
+def compute_circular_rmse_deg(left, right):
+    if left.size == 0:
+        raise ValueError("Cannot compute RMSE for empty aligned arrays")
+    difference = angular_difference_deg(left, right)
+    return float(np.sqrt(np.mean(difference**2)))
+
+
 def first_time_at_or_above(time_s, values, threshold):
     matching_indexes = np.flatnonzero(values >= threshold)
     if matching_indexes.size == 0:
@@ -282,7 +293,7 @@ def shifted_time(time_s, alignment, side):
     return time_s - alignment[f"{side}_time_offset_s"]
 
 
-def align_and_compare(sim_t, sim_values, real_t, real_values):
+def align_and_compare(sim_t, sim_values, real_t, real_values, rmse_func=compute_rmse):
     common_t_start = max(sim_t[0], real_t[0])
     common_t_end = min(sim_t[-1], real_t[-1])
     if common_t_end <= common_t_start:
@@ -295,7 +306,7 @@ def align_and_compare(sim_t, sim_values, real_t, real_values):
     real_interp = interp1d(real_t, real_values, bounds_error=True)
     real_values_aligned = real_interp(sim_t_aligned)
 
-    rmse = compute_rmse(sim_values_aligned, real_values_aligned)
+    rmse = rmse_func(sim_values_aligned, real_values_aligned)
     details = {
         "common_time_start_s": float(common_t_start),
         "common_time_end_s": float(common_t_end),
@@ -433,6 +444,7 @@ def compare_segment_series(
     real_t,
     real_values,
     real_segment,
+    rmse_func=compute_rmse,
 ):
     sim_segment_t, sim_segment_values = segment_values(sim_t, sim_values, sim_segment)
     real_segment_t, real_segment_values = segment_values(
@@ -466,7 +478,7 @@ def compare_segment_series(
     real_interp = interp1d(real_segment_t, real_segment_values, bounds_error=True)
     real_aligned_values = real_interp(sim_aligned_t)
 
-    return compute_rmse(sim_aligned_values, real_aligned_values), {
+    return rmse_func(sim_aligned_values, real_aligned_values), {
         "available": True,
         "normalized_time_start": float(common_t_start),
         "normalized_time_end": float(common_t_end),
@@ -486,6 +498,11 @@ def compute_segment_rmse(series, segments):
         }
 
         for series_name, (sim_t, sim_values, real_t, real_values) in series.items():
+            rmse_func = (
+                compute_circular_rmse_deg
+                if series_name == "yaw"
+                else compute_rmse
+            )
             rmse, details = compare_segment_series(
                 sim_t,
                 sim_values,
@@ -493,6 +510,7 @@ def compute_segment_rmse(series, segments):
                 real_t,
                 real_values,
                 real_segment,
+                rmse_func,
             )
             segment_metrics[segment_name][f"{series_name}_rmse"] = rmse
             segment_metrics[segment_name][series_name] = details
@@ -626,6 +644,7 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         sim_yaw,
         real_t_attitude_shifted,
         real_yaw,
+        compute_circular_rmse_deg,
     )
     yaw_plot = plot_comparison(sim_t_yaw, sim_yaw_al, real_yaw_al, "yaw", plot_dir)
 

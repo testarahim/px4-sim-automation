@@ -188,7 +188,7 @@ It computes:
 - `velocity_rmse`
 - `roll_rmse`
 - `pitch_rmse`
-- `yaw_rmse`
+- `yaw_rmse` using circular angle difference
 
 The metrics JSON also contains a `segments` object with `takeoff_climb`,
 `hover_cruise`, and `landing` entries. Segment boundaries are detected from
