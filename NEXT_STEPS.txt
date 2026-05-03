@@ -35,42 +35,21 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Sim-vs-real karsilastirma altyapisi argumanli hale getirildi.
-  - scripts/compare_logs.py artik --sim ve --real argumanlari aliyor.
-  - --metrics ve --plot-dir argumanlari eklendi; karsilastirma ciktilari
-    gorev metrikleriyle carpismaz hale geldi.
-  - Baslangic metrikleri korunup netlestirildi:
-    altitude_rmse, velocity_rmse, roll_rmse, pitch_rmse, yaw_rmse.
-  - Threshold argumanlari eklendi:
-    --altitude-threshold, --velocity-threshold, --attitude-threshold.
-  - scripts/batch_compare.py compare_logs.py argumanlariyla uyumlu hale
-    getirildi; her sim log icin ayri metrics ve plot klasoru uretiyor.
-  - run.sh opsiyonel sim-vs-real adiminda compare_logs.py dosyasini artik
-    acik --sim/--real path'leriyle cagiriyor.
-  - results/comparisons/ .gitignore'a eklendi.
-- Hafif dogrulama yapildi:
-  - python3 -m py_compile scripts/compare_logs.py scripts/batch_compare.py
-  - python3 scripts/compare_logs.py --help
-  - bash -n run.sh
-- Gercek/sim .ulg karsilastirmasi bu adimda calistirilmadi.
+- README guncellendi.
+  - Kurulum komutu eklendi: bash setup.sh.
+  - Tek kosu komutlari eklendi: bash run.sh ve senaryo secimi.
+  - Batch senaryo kosusu belgelendi: python3 scripts/run_batch.py.
+  - SITL log izleme komutu eklendi: tail -f logs/sitl.log.
+  - Sonuc dosyalari ve run artifact duzeni aciklandi.
+  - PX4_DIR farkliysa nasil calistirilacagi eklendi.
+  - Sim-vs-real compare ve batch_compare komutlari belgelendi.
+- Hafif dogrulama:
+  - README komutlari mevcut script arayuzleriyle karsilastirildi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. README'yi guncelle
-    - Kurulum:
-      bash setup.sh
-    - Tek kosu:
-      bash run.sh
-    - SITL log izleme:
-      tail -f logs/sitl.log
-    - Sonuc dosyalari:
-      results/metrics.json
-      results/plots/altitude.png
-    - PX4_DIR farkliysa nasil calistirilacagi:
-      PX4_DIR=/path/to/PX4-Autopilot bash run.sh
-
-2. Temizlik
+1. Temizlik
     - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
     - logs/, results/plots/, results/runs/ gibi generated artifacts icin
       .gitignore korunmali.
