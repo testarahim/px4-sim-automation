@@ -167,6 +167,8 @@ python3 scripts/download_public_logs.py \
   --rating Good \
   --min-duration-s 30 \
   --max-duration-s 180 \
+  --min-flight-mode-duration-s Mission 30 \
+  --exclude-sys-hw PX4_SITL \
   --max-logged-warnings 5 \
   --max-logged-errors 0 \
   --max-num 10

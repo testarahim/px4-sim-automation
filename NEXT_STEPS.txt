@@ -33,23 +33,50 @@ Mevcut Durum
   yaziyor.
 - run.sh her kosu icin results/runs/<timestamp>/ artifact klasoru olusturuyor.
 - scripts/download_public_logs.py public Flight Review metadata'si uzerinde
-  artik duration ve logged warning/error kalite filtrelerini destekliyor:
-  --min-duration-s, --max-duration-s, --max-logged-warnings,
-  --max-logged-errors.
+  artik duration, flight-mode duration, sys_hw ve logged warning/error kalite
+  filtrelerini destekliyor: --min-duration-s, --max-duration-s,
+  --min-flight-mode-duration-s, --max-flight-mode-duration-s, --sys-hw,
+  --exclude-sys-hw, --max-logged-warnings, --max-logged-errors.
 
 Son Yapilan Is
 --------------
-- Public log downloader icin veri kalitesi filtreleri eklendi.
+- Public log aday secimi sahada dogrulandi ve ek filtreler eklendi.
   - Yeni CLI opsiyonlari:
-    --min-duration-s, --max-duration-s, --max-logged-warnings,
+    --min-duration-s, --max-duration-s,
+    --min-flight-mode-duration-s, --max-flight-mode-duration-s,
+    --sys-hw, --exclude-sys-hw, --max-logged-warnings,
     --max-logged-errors.
   - Filtreler Flight Review metadata'sinda birden fazla olasi alan adini
     destekleyecek sekilde esnek yazildi:
     duration_s/duration/duration_sec/duration_seconds,
     num_logged_warnings/logged_warnings/warning_count/warnings,
     num_logged_errors/logged_errors/error_count/errors.
-  - Filtre istenmediginde eski davranis korunuyor; filtre istenirse ilgili
-    metadata alani olmayan log aday disi kaliyor.
+  - flight_mode_durations metadata'si bulundu ve belirli modda toplam sure
+    filtresi eklendi. Ornek: --min-flight-mode-duration-s Mission 30.
+  - Public metadata icinde PX4_SITL kayitlarinin da oldugu goruldu; gercek
+    ucus havuzuna SITL karismamasi icin --exclude-sys-hw PX4_SITL eklendi.
+  - Print-only saha kontrolu:
+    385338 public log bulundu.
+    Quadrotor + Mission + Good + duration/warning/error filtreleri 188 aday.
+    Mission >= 30 s filtresiyle 161 aday.
+    PX4_SITL exclude filtresiyle 159 aday.
+  - Indirilen temiz aday:
+    data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
+    Metadata: duration_s=82, Mission=48 s, warnings=1, errors=0,
+    sys_hw=PX4_FMU_V3.
+  - Filtreli aday ile manuel sim-vs-real compare calistirildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
+      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
+      --real data/real/public_logs/2eb639d6-3086-4425-a241-003bcf67be91.ulg
+      --metrics results/comparisons/public_log_filtered_metrics.json
+      --plot-dir results/plots/comparisons/public_log_filtered
+  - Compare teknik olarak basarili calisti ve plot/metrics uretti.
+  - Sonuc overall_pass=false. Bu hala beklenen bir durum; filtreler aday
+    kalitesini artiriyor ama gercek log gorev profili SITL takeoff_land_20m
+    ile bire bir hizali degil.
+  - Metrikler:
+    altitude_rmse=7.272608, velocity_rmse=3.708981,
+    roll_rmse=7.102740, pitch_rmse=12.452757, yaw_rmse=113.927472.
   - README.md ve docs/download_public_logs.md filtreli indirme ornekleriyle
     guncellendi.
   - Dogrulama:
@@ -60,22 +87,20 @@ Son Yapilan Is
 Siradaki Yapilacaklar
 ---------------------
 
-1. Public log aday secimini sahada dogrula
-    - Yeni filtrelerle once print-only metadata incelemesi yap:
-      python3 scripts/download_public_logs.py --print --mav-type Quadrotor
-        --flight-modes Mission --rating Good --min-duration-s 30
-        --max-duration-s 180 --max-logged-warnings 5 --max-logged-errors 0
-        --max-num 10
-    - Aday metadata'sinda max altitude veya flight-mode duration bilgisi
-      var mi kontrol et. Varsa downloader'a ek kalite filtreleri ekle.
-    - Kucuk ve temiz bir aday set indirip sim-vs-real compare'i tekrar dene.
-    - Rastgele public Mission loglari dogrudan takeoff_land senaryosuyla
-      kiyaslaninca pass beklenmemeli; asil hedef daha anlamli aday secmek.
-
-2. Compare zaman hizalamasini iyilestirmeyi degerlendir
+1. Compare zaman hizalamasini iyilestirmeyi degerlendir
     - compare_logs.py tarafinda takeoff/hover/landing fazlarini ayirarak
       hizalama yapmak gerekiyor mu incele.
     - Uygunsa once kucuk fixture veya mock veriyle test ekle.
+    - Mevcut compare time-zero baslangic hizalamasiyla calisiyor; gercek log
+      icinde mission/takeoff/land fazlari farkli basladigi icin RMSE
+      pass/fail sonucu hala davranis eslesmesi olarak yorumlanmamali.
+
+2. Public log aday secimini daha da iyilestir
+    - Flight Review dbinfo metadata'sinda max altitude bilgisi gorunmedi;
+      gerekirse indirilen .ulg uzerinden on analiz yapip max altitude ve
+      landing/takeoff imzasi bazli aday secimi ekle.
+    - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
+      ve batch compare raporu uret.
 
 3. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

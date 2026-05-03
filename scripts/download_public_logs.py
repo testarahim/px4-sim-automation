@@ -137,6 +137,18 @@ def parse_args():
         help="Filter by upload source, for example CI.",
     )
     parser.add_argument(
+        "--sys-hw",
+        nargs="+",
+        default=None,
+        help="Filter by system hardware label, for example PX4_FMU_V5.",
+    )
+    parser.add_argument(
+        "--exclude-sys-hw",
+        nargs="+",
+        default=None,
+        help="Exclude system hardware labels, for example PX4_SITL.",
+    )
+    parser.add_argument(
         "--log-id",
         nargs="+",
         default=None,
@@ -172,6 +184,22 @@ def parse_args():
         help="Keep logs with at most this many logged errors in metadata.",
     )
     parser.add_argument(
+        "--min-flight-mode-duration-s",
+        nargs=2,
+        action="append",
+        metavar=("MODE", "SECONDS"),
+        default=None,
+        help="Keep logs where MODE has at least SECONDS total duration.",
+    )
+    parser.add_argument(
+        "--max-flight-mode-duration-s",
+        nargs=2,
+        action="append",
+        metavar=("MODE", "SECONDS"),
+        default=None,
+        help="Keep logs where MODE has at most SECONDS total duration.",
+    )
+    parser.add_argument(
         "--delay",
         type=float,
         default=DEFAULT_DELAY_SECONDS,
@@ -204,6 +232,14 @@ def validate_args(args):
     validate_non_negative("--max-duration-s", args.max_duration_s)
     validate_non_negative("--max-logged-warnings", args.max_logged_warnings)
     validate_non_negative("--max-logged-errors", args.max_logged_errors)
+    args.min_flight_mode_duration_s = parse_mode_duration_filters(
+        args.min_flight_mode_duration_s,
+        "--min-flight-mode-duration-s",
+    )
+    args.max_flight_mode_duration_s = parse_mode_duration_filters(
+        args.max_flight_mode_duration_s,
+        "--max-flight-mode-duration-s",
+    )
     if (
         args.min_duration_s is not None
         and args.max_duration_s is not None
@@ -254,6 +290,16 @@ def value_matches_exact(entry, key, requested_value):
     return entry_value is not None and normalize(entry_value) == normalize(requested_value)
 
 
+def value_excludes_any(entry, key, excluded_values):
+    if excluded_values is None:
+        return True
+    entry_value = entry.get(key)
+    if entry_value is None:
+        return True
+    excluded = {normalize(value) for value in excluded_values}
+    return normalize(entry_value) not in excluded
+
+
 def flight_mode_token(value):
     normalized = normalize(value).replace("(", "").replace(")", "")
     if normalized.isdigit():
@@ -262,6 +308,25 @@ def flight_mode_token(value):
         supported = ", ".join(sorted(FLIGHT_MODE_IDS))
         raise ValueError(f"Unknown flight mode: {value}. Supported labels: {supported}")
     return FLIGHT_MODE_IDS[normalized]
+
+
+def parse_mode_duration_filters(filters, argument_name):
+    parsed = []
+    if filters is None:
+        return parsed
+
+    for mode, duration_s in filters:
+        try:
+            duration = float(duration_s)
+        except ValueError as exc:
+            raise ValueError(
+                f"{argument_name} duration must be numeric: {duration_s}"
+            ) from exc
+        if duration < 0:
+            raise ValueError(f"{argument_name} duration must be non-negative")
+        parsed.append((flight_mode_token(mode), duration))
+
+    return parsed
 
 
 def entry_has_flight_modes(entry, requested_modes):
@@ -281,6 +346,40 @@ def entry_has_flight_modes(entry, requested_modes):
 
     requested = {flight_mode_token(mode) for mode in requested_modes}
     return requested.issubset(available)
+
+
+def flight_mode_durations(entry):
+    durations = {}
+    for item in entry.get("flight_mode_durations") or []:
+        if not isinstance(item, (list, tuple)) or len(item) != 2:
+            continue
+        mode, duration_s = item
+        try:
+            mode_id = flight_mode_token(mode)
+            duration = float(duration_s)
+        except (TypeError, ValueError):
+            continue
+        durations[mode_id] = durations.get(mode_id, 0.0) + duration
+    return durations
+
+
+def entry_matches_mode_duration_filters(entry, minimum_filters, maximum_filters):
+    if not minimum_filters and not maximum_filters:
+        return True
+
+    durations = flight_mode_durations(entry)
+    if not durations:
+        return False
+
+    for mode, minimum in minimum_filters or []:
+        if durations.get(mode, 0.0) < minimum:
+            return False
+
+    for mode, maximum in maximum_filters or []:
+        if mode not in durations or durations[mode] > maximum:
+            return False
+
+    return True
 
 
 def entry_matches_log_ids(entry, requested_log_ids):
@@ -350,8 +449,15 @@ def filter_entries(entries, args):
         and value_matches_exact(entry, "airframe_name", args.airframe_name)
         and value_matches_exact(entry, "ver_sw", args.git_hash)
         and value_matches_exact(entry, "source", args.source)
+        and value_matches_any(entry, "sys_hw", args.sys_hw)
+        and value_excludes_any(entry, "sys_hw", args.exclude_sys_hw)
         and entry_matches_log_ids(entry, args.log_id)
         and entry_has_flight_modes(entry, args.flight_modes)
+        and entry_matches_mode_duration_filters(
+            entry,
+            args.min_flight_mode_duration_s,
+            args.max_flight_mode_duration_s,
+        )
         and metadata_number_in_range(
             entry,
             METADATA_DURATION_KEYS,

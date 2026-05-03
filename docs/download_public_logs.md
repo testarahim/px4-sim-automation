@@ -93,9 +93,11 @@ The first useful filter set should cover:
 - flight modes, for example `Mission`
 - rating, for example `Good`
 - duration range
+- flight-mode duration range
 - logged warning/error limits
 - airframe type
 - airframe name
+- system hardware include/exclude
 - PX4 git hash
 - upload source
 - specific log id
@@ -154,6 +156,8 @@ python3 scripts/download_public_logs.py \
   --rating Good \
   --min-duration-s 30 \
   --max-duration-s 180 \
+  --min-flight-mode-duration-s Mission 30 \
+  --exclude-sys-hw PX4_SITL \
   --max-logged-warnings 5 \
   --max-logged-errors 0 \
   --max-num 10
