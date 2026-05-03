@@ -4,6 +4,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 from pyulog import ULog
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
@@ -14,10 +15,21 @@ DEFAULT_SIM_LOG = PROJECT_DIR / "data" / "sim" / "sim_log.ulg"
 DEFAULT_REAL_LOG = PROJECT_DIR / "data" / "real" / "real_log.ulg"
 DEFAULT_METRICS = PROJECT_DIR / "results" / "compare_metrics.json"
 DEFAULT_PLOT_DIR = PROJECT_DIR / "results" / "plots" / "compare"
+DEFAULT_THRESHOLDS = {
+    "altitude_rmse": 1.5,
+    "velocity_rmse": 1.0,
+    "attitude_rmse": 5.0,
+}
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Compare simulation and real PX4 logs.")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional scenario/config YAML path used for comparison thresholds.",
+    )
     parser.add_argument(
         "--sim",
         type=Path,
@@ -45,22 +57,77 @@ def parse_args():
     parser.add_argument(
         "--altitude-threshold",
         type=float,
-        default=1.5,
-        help="Altitude RMSE pass threshold in meters.",
+        default=None,
+        help="Altitude RMSE pass threshold in meters. Overrides --config.",
     )
     parser.add_argument(
         "--velocity-threshold",
         type=float,
-        default=1.0,
-        help="Velocity RMSE pass threshold in m/s.",
+        default=None,
+        help="Velocity RMSE pass threshold in m/s. Overrides --config.",
     )
     parser.add_argument(
         "--attitude-threshold",
         type=float,
-        default=5.0,
-        help="Roll/pitch/yaw RMSE pass threshold in degrees.",
+        default=None,
+        help="Roll/pitch/yaw RMSE pass threshold in degrees. Overrides --config.",
     )
     return parser.parse_args()
+
+
+def load_config(config_path):
+    if config_path is None:
+        return {}
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config not found: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as config_file:
+        return yaml.safe_load(config_file) or {}
+
+
+def threshold_value(thresholds, keys, default):
+    for key in keys:
+        value = thresholds.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, (int, float)) or value < 0:
+            raise ValueError(f"Invalid threshold value: thresholds.{key}")
+        return float(value)
+    return float(default)
+
+
+def resolve_thresholds(args, config):
+    config_thresholds = config.get("thresholds", {})
+    thresholds = {
+        "altitude_rmse": threshold_value(
+            config_thresholds,
+            ("altitude_rmse", "max_altitude_error_m"),
+            DEFAULT_THRESHOLDS["altitude_rmse"],
+        ),
+        "velocity_rmse": threshold_value(
+            config_thresholds,
+            ("velocity_rmse",),
+            DEFAULT_THRESHOLDS["velocity_rmse"],
+        ),
+        "attitude_rmse": threshold_value(
+            config_thresholds,
+            ("attitude_rmse",),
+            DEFAULT_THRESHOLDS["attitude_rmse"],
+        ),
+    }
+
+    if args.altitude_threshold is not None:
+        thresholds["altitude_rmse"] = args.altitude_threshold
+    if args.velocity_threshold is not None:
+        thresholds["velocity_rmse"] = args.velocity_threshold
+    if args.attitude_threshold is not None:
+        thresholds["attitude_rmse"] = args.attitude_threshold
+
+    for key, value in thresholds.items():
+        if value < 0:
+            raise ValueError(f"Invalid threshold value: {key}")
+
+    return thresholds
 
 
 def load_log(log_path):
@@ -251,19 +318,17 @@ def compare_series(sim_ulog, real_ulog, plot_dir):
 
 def main():
     args = parse_args()
+    config = load_config(args.config)
     sim_ulog = load_log(args.sim)
     real_ulog = load_log(args.real)
 
     metrics, plots = compare_series(sim_ulog, real_ulog, args.plot_dir)
-    thresholds = {
-        "altitude_rmse": args.altitude_threshold,
-        "velocity_rmse": args.velocity_threshold,
-        "attitude_rmse": args.attitude_threshold,
-    }
+    thresholds = resolve_thresholds(args, config)
     metrics["evaluation"] = evaluate(metrics, thresholds)
     metrics["inputs"] = {
         "sim": str(args.sim),
         "real": str(args.real),
+        "config": str(args.config) if args.config else None,
     }
     metrics["plots"] = plots
 

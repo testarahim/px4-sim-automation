@@ -114,6 +114,15 @@ Compare one simulation log with one real flight log:
 python3 scripts/compare_logs.py --sim path/to/sim.ulg --real path/to/real.ulg
 ```
 
+Use a scenario/config file for comparison thresholds:
+
+```bash
+python3 scripts/compare_logs.py \
+  --config scenarios/takeoff_land_20m.yaml \
+  --sim path/to/sim.ulg \
+  --real path/to/real.ulg
+```
+
 The comparison computes:
 
 - `altitude_rmse`
@@ -131,6 +140,12 @@ Compare every `.ulg` file in `data/sim/` against `data/real/real_log.ulg`:
 
 ```bash
 python3 scripts/batch_compare.py
+```
+
+Pass a scenario/config file to batch comparison:
+
+```bash
+python3 scripts/batch_compare.py --config scenarios/takeoff_land_20m.yaml
 ```
 
 ## Configuration

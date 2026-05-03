@@ -35,31 +35,37 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Batch runner zaman raporlamasi eklendi.
-  - scripts/run_batch.py summary.json icine batch seviyesinde su alanlari
-    yaziyor:
-    started_at, finished_at, duration_s.
-  - Her senaryo sonucu icin de started_at, finished_at ve duration_s
-    alanlari ekleniyor.
-  - summary.csv dosyasina ayni senaryo seviyesi zaman alanlari eklendi.
-  - Terminal ozet tablosuna Duration sutunu eklendi.
-  - README batch summary aciklamasi bu alanlari kapsayacak sekilde
-    guncellendi.
+- compare_logs.py threshold degerlerini scenario/config YAML'den okuyabilir
+  hale getirildi.
+  - scripts/compare_logs.py --config argumani aliyor.
+  - Config icindeki thresholds.velocity_rmse ve thresholds.attitude_rmse
+    degerleri sim-vs-real pass/fail icin kullaniliyor.
+  - Altitude compare esigi icin once thresholds.altitude_rmse, yoksa mevcut
+    senaryo dosyalarindaki thresholds.max_altitude_error_m kullaniliyor.
+  - CLI argumanlari (--altitude-threshold, --velocity-threshold,
+    --attitude-threshold) config uzerine override etmeye devam ediyor.
+  - run.sh opsiyonel sim-vs-real adimina secilen senaryo/config dosyasini
+    iletiyor.
+  - scripts/batch_compare.py --config argumani aliyor ve compare_logs.py
+    cagrilarina iletiyor.
+  - README compare komutlari --config ornekleriyle guncellendi.
 - Hafif dogrulama yapildi:
-  - python3 -m py_compile scripts/run_batch.py
-  - python3 scripts/run_batch.py --help
-  - SITL baslatmadan monkeypatch testiyle summary.json ve summary.csv
-    zaman alanlari kontrol edildi.
+  - python3 -m py_compile scripts/compare_logs.py scripts/batch_compare.py
+  - python3 scripts/compare_logs.py --help
+  - python3 scripts/batch_compare.py --help
+  - bash -n run.sh
+  - load_config/resolve_thresholds ile scenario YAML okuma ve CLI override
+    davranisi kontrol edildi.
 
 Siradaki Yapilacaklar
 ---------------------
 
 1. Ileride eklenebilecek iyilestirmeler
-    - compare_logs.py threshold degerlerini scenario/config YAML'den opsiyonel
-      okuyabilir hale getir.
     - docs/architecture.md dosyasini yeni scenario/batch akisina gore genislet.
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
+    - compare_logs.py icin kucuk fixture veya mock veriyle otomatik test
+      ekle.
 
 Onemli Teknik Notlar
 --------------------
