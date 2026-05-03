@@ -17,6 +17,24 @@ DEFAULT_MAX_NUM = 10
 WARN_THRESHOLD = 100
 REQUEST_TIMEOUT_S = 10 * 60
 CHUNK_SIZE = 1024 * 1024
+METADATA_DURATION_KEYS = (
+    "duration_s",
+    "duration",
+    "duration_sec",
+    "duration_seconds",
+)
+METADATA_WARNING_KEYS = (
+    "num_logged_warnings",
+    "logged_warnings",
+    "warning_count",
+    "warnings",
+)
+METADATA_ERROR_KEYS = (
+    "num_logged_errors",
+    "logged_errors",
+    "error_count",
+    "errors",
+)
 
 FLIGHT_MODE_IDS = {
     "manual": 0,
@@ -130,6 +148,30 @@ def parse_args():
         help="Keep only the latest log per vehicle UUID.",
     )
     parser.add_argument(
+        "--min-duration-s",
+        type=float,
+        default=None,
+        help="Keep logs with metadata duration greater than or equal to this many seconds.",
+    )
+    parser.add_argument(
+        "--max-duration-s",
+        type=float,
+        default=None,
+        help="Keep logs with metadata duration less than or equal to this many seconds.",
+    )
+    parser.add_argument(
+        "--max-logged-warnings",
+        type=int,
+        default=None,
+        help="Keep logs with at most this many logged warnings in metadata.",
+    )
+    parser.add_argument(
+        "--max-logged-errors",
+        type=int,
+        default=None,
+        help="Keep logs with at most this many logged errors in metadata.",
+    )
+    parser.add_argument(
         "--delay",
         type=float,
         default=DEFAULT_DELAY_SECONDS,
@@ -150,6 +192,24 @@ def normalize(value):
 
 def normalize_log_id(value):
     return normalize(value).replace("-", "")
+
+
+def validate_non_negative(name, value):
+    if value is not None and value < 0:
+        raise ValueError(f"{name} must be non-negative")
+
+
+def validate_args(args):
+    validate_non_negative("--min-duration-s", args.min_duration_s)
+    validate_non_negative("--max-duration-s", args.max_duration_s)
+    validate_non_negative("--max-logged-warnings", args.max_logged_warnings)
+    validate_non_negative("--max-logged-errors", args.max_logged_errors)
+    if (
+        args.min_duration_s is not None
+        and args.max_duration_s is not None
+        and args.min_duration_s > args.max_duration_s
+    ):
+        raise ValueError("--min-duration-s cannot be greater than --max-duration-s")
 
 
 def parse_log_date(entry):
@@ -233,6 +293,41 @@ def entry_matches_log_ids(entry, requested_log_ids):
     return normalize_log_id(entry_id) in requested
 
 
+def numeric_metadata_value(entry, keys):
+    for key in keys:
+        if key not in entry or entry[key] is None:
+            continue
+
+        value = entry[key]
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError:
+                continue
+        if isinstance(value, (list, tuple, set, dict)):
+            return float(len(value))
+
+    return None
+
+
+def metadata_number_in_range(entry, keys, minimum=None, maximum=None):
+    if minimum is None and maximum is None:
+        return True
+
+    value = numeric_metadata_value(entry, keys)
+    if value is None:
+        return False
+    if minimum is not None and value < minimum:
+        return False
+    if maximum is not None and value > maximum:
+        return False
+    return True
+
+
 def filter_latest_per_vehicle(entries):
     latest_by_uuid = {}
     for entry in entries:
@@ -257,6 +352,22 @@ def filter_entries(entries, args):
         and value_matches_exact(entry, "source", args.source)
         and entry_matches_log_ids(entry, args.log_id)
         and entry_has_flight_modes(entry, args.flight_modes)
+        and metadata_number_in_range(
+            entry,
+            METADATA_DURATION_KEYS,
+            minimum=args.min_duration_s,
+            maximum=args.max_duration_s,
+        )
+        and metadata_number_in_range(
+            entry,
+            METADATA_WARNING_KEYS,
+            maximum=args.max_logged_warnings,
+        )
+        and metadata_number_in_range(
+            entry,
+            METADATA_ERROR_KEYS,
+            maximum=args.max_logged_errors,
+        )
     ]
 
     if args.latest_per_vehicle:
@@ -345,6 +456,7 @@ def print_entries(entries):
 
 def main():
     args = parse_args()
+    validate_args(args)
     download_folder = (
         args.download_folder
         if args.download_folder.is_absolute()

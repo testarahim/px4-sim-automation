@@ -165,6 +165,10 @@ python3 scripts/download_public_logs.py \
   --mav-type Quadrotor \
   --flight-modes Mission \
   --rating Good \
+  --min-duration-s 30 \
+  --max-duration-s 180 \
+  --max-logged-warnings 5 \
+  --max-logged-errors 0 \
   --max-num 10
 ```
 

@@ -92,6 +92,8 @@ The first useful filter set should cover:
 - MAV type, for example `Quadrotor`
 - flight modes, for example `Mission`
 - rating, for example `Good`
+- duration range
+- logged warning/error limits
 - airframe type
 - airframe name
 - PX4 git hash
@@ -140,6 +142,21 @@ python3 scripts/download_public_logs.py \
   --rating Good \
   --max-num 10 \
   --download-folder data/real/public_logs/
+```
+
+Download a more constrained candidate set for short takeoff/landing-style
+comparisons:
+
+```bash
+python3 scripts/download_public_logs.py \
+  --mav-type Quadrotor \
+  --flight-modes Mission \
+  --rating Good \
+  --min-duration-s 30 \
+  --max-duration-s 180 \
+  --max-logged-warnings 5 \
+  --max-logged-errors 0 \
+  --max-num 10
 ```
 
 Compare a downloaded real log with a simulation artifact:
