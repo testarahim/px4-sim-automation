@@ -35,41 +35,45 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- scripts/download_public_logs.py eklendi.
-  - PX4 Flight Review public dbinfo API'sinden log metadata'si aliyor.
-  - Varsayilan hedef data/real/public_logs/.
-  - Guvenli varsayilanlar:
-    --max-num 10, --delay 6, skip existing logs.
-  - --print modu ile indirmeden metadata inceleme destekleniyor.
-  - Filtreler eklendi:
-    --mav-type, --flight-modes, --rating, --airframe-type,
-    --airframe-name, --git-hash, --source, --log-id,
-    --latest-per-vehicle.
-  - Buyuk indirme uyarisi, overwrite kontrolu ve retry/rate-limit davranisi
-    eklendi.
-  - requirements.txt icine requests eklendi.
-  - README, docs/architecture.md ve docs/download_public_logs.md guncellendi.
-- Dogrulama yapildi:
-  - python3 -m py_compile scripts/download_public_logs.py
-  - python3 scripts/download_public_logs.py --help
-  - Sahte metadata ile filtreleme ve latest-per-vehicle testi.
-  - Gercek Flight Review API ile print-only metadata testi:
-    python3 scripts/download_public_logs.py --print --max-num 1
-  - Gercek Flight Review API ile Quadrotor + Mission print-only filtre testi:
-    python3 scripts/download_public_logs.py --print --max-num 1
-      --mav-type Quadrotor --flight-modes Mission
+- Public log downloader icin indirme ve compare dogrulamasi yapildi.
+  - Kucuk indirme komutu calistirildi:
+    python3 scripts/download_public_logs.py --mav-type Quadrotor
+      --flight-modes Mission --max-num 1 --delay 6
+  - Flight Review metadata sonucu:
+    385338 public log bulundu, Quadrotor + Mission filtresi 37393 log
+    eslestirdi.
+  - Indirilen log:
+    data/real/public_logs/8f115019-8883-4c61-ae8a-e2fb82acff51.ulg
+    Boyut: 1183077 bytes.
+  - Manuel sim-vs-real compare calistirildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
+      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
+      --real data/real/public_logs/8f115019-8883-4c61-ae8a-e2fb82acff51.ulg
+      --metrics results/comparisons/public_log_manual_metrics.json
+      --plot-dir results/plots/comparisons/public_log_manual
+  - Compare teknik olarak basarili calisti ve plot/metrics uretti.
+  - Sonuc overall_pass=false. Bu beklenen bir durum; indirilen public log
+    rastgele bir gercek gorev oldugu icin SITL takeoff_land_20m senaryosuyla
+    davranis olarak eslesmiyor.
+  - Metrikler:
+    altitude_rmse=9.475263, velocity_rmse=1.309177,
+    roll_rmse=23.461537, pitch_rmse=12.023794, yaw_rmse=188.324935.
+  - Generated log, metrics ve plot artifact'lari git disinda kaldi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Public log downloader icin indirme dogrulamasi yap
-    - Kucuk ve guvenli bir indirme denemesi:
-      python3 scripts/download_public_logs.py --mav-type Quadrotor
-        --flight-modes Mission --max-num 1 --delay 6
-    - Indirilen .ulg dosyasinin data/real/public_logs/ altina geldigini
-      dogrula.
-    - Ardindan bir sim artifact ile compare_logs.py kullanarak manuel
-      sim-vs-real denemesi yap.
+1. Public log filtreleme ve veri kalitesi stratejisini iyilestir
+    - Rastgele public Mission loglari dogrudan takeoff_land senaryosuyla
+      kiyaslaninca pass beklenmemeli.
+    - Daha anlamli sim-vs-real icin aday log secim kriterleri belirle:
+      duration_s araligi, max altitude, flight mode sureleri, airframe type,
+      rating, warning/error sayisi.
+    - scripts/download_public_logs.py icin opsiyonel filtreler dusun:
+      --min-duration-s, --max-duration-s, --max-logged-warnings,
+      --max-logged-errors.
+    - compare_logs.py tarafinda zaman hizalama icin takeoff/hover/landing
+      fazlarini ayirma ihtiyacini degerlendir.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
