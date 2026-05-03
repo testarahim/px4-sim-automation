@@ -4,6 +4,13 @@ This project provides a repeatable PX4 SITL automation pipeline. It starts PX4,
 runs a MAVSDK mission, extracts the PX4 `.ulg` log, computes metrics, and
 returns a pass/fail result.
 
+## AI Assistance
+
+This project was developed with support from artificial intelligence tools.
+AI assistance was used for code generation, documentation, analysis, and
+iterative engineering decisions, with the project owner reviewing and directing
+the work.
+
 ## Features
 
 - One-command PX4 SITL run
