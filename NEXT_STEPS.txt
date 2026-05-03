@@ -35,25 +35,35 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- README guncellendi.
-  - Kurulum komutu eklendi: bash setup.sh.
-  - Tek kosu komutlari eklendi: bash run.sh ve senaryo secimi.
-  - Batch senaryo kosusu belgelendi: python3 scripts/run_batch.py.
-  - SITL log izleme komutu eklendi: tail -f logs/sitl.log.
-  - Sonuc dosyalari ve run artifact duzeni aciklandi.
-  - PX4_DIR farkliysa nasil calistirilacagi eklendi.
-  - Sim-vs-real compare ve batch_compare komutlari belgelendi.
-- Hafif dogrulama:
-  - README komutlari mevcut script arayuzleriyle karsilastirildi.
+- Generated artifact temizligi yapildi.
+  - results/metrics.json git takibinden cikarildi; dosya local workspace'te
+    kalir ama yeni commitlere girmez.
+  - .gitignore'a results/metrics.json ve results/compare_metrics.json
+    alias ciktisi kurallari eklendi.
+  - results/runs/, results/batches/, results/comparisons/, results/plots/
+    ignore kurallari korundu.
+  - scripts/__pycache__/ ve *.pyc ignore kurallari korundu.
+- Hafif dogrulama yapildi:
+  - git ls-files logs results scripts/__pycache__
+  - find . -path ./.git -prune -o -name '__pycache__' -print
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Temizlik
-    - scripts/__pycache__/ gibi uretilen dosyalar git'e girmemeli.
-    - logs/, results/plots/, results/runs/ gibi generated artifacts icin
-      .gitignore korunmali.
-    - Ornek cikti gerekiyorsa sadece kucuk sample dosyalar tutulmali.
+1. Tam pipeline dogrulamasi
+    - Tek senaryo icin:
+      bash run.sh scenarios/takeoff_land_20m.yaml
+    - Batch icin:
+      python3 scripts/run_batch.py --stop-on-fail
+    - Beklenen sonuc:
+      metrics.json dosyalarinda evaluation.overall_pass=true.
+
+2. Ileride eklenebilecek iyilestirmeler
+    - Batch runner icin toplam sure ve baslangic/bitis zamanlarini summary'ye
+      ekle.
+    - compare_logs.py threshold degerlerini scenario/config YAML'den opsiyonel
+      okuyabilir hale getir.
+    - docs/architecture.md dosyasini yeni scenario/batch akisina gore genislet.
 
 Onemli Teknik Notlar
 --------------------

@@ -1,4 +1,6 @@
 logs/
+results/metrics.json
+results/compare_metrics.json
 results/runs/
 results/batches/
 results/comparisons/
