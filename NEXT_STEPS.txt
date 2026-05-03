@@ -48,54 +48,68 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Public log adaylari airborne-start durumuna gore on analiz edildi.
-  - Yeni arac:
-    scripts/inspect_log_candidates.py
-  - Arac indirilen .ulg loglari icin su alanlari uretiyor:
-    duration_s, initial_altitude_m, max_altitude_m, final_altitude_m,
-    min_altitude_m, altitude_range_m, starts_near_ground, ends_near_ground,
-    airborne_start, takeoff_detected, landing_detected, takeoff_time_s,
-    landing_time_s.
-  - Varsayilan komut:
-    python3 scripts/inspect_log_candidates.py --log-dir data/real/public_logs
-      --ground-altitude-m 0.3 --takeoff-altitude-m 1.0
-  - Ciktilar:
-    results/real_log_candidates.json
-    results/real_log_candidates.csv
-    Bu dosyalar generated artifact olarak git disinda tutuluyor.
-  - Mevcut indirilen iki public log analiz edildi:
-    2eb639d6-3086-4425-a241-003bcf67be91:
-      duration_s=81.608066, initial_altitude_m=4.315186,
-      max_altitude_m=15.863281, final_altitude_m=2.604248,
-      airborne_start=true, takeoff_detected=false, landing_detected=false.
-    8f115019-8883-4c61-ae8a-e2fb82acff51:
-      duration_s=21.502844, initial_altitude_m=10.845215,
-      max_altitude_m=15.226746, final_altitude_m=12.135437,
-      airborne_start=true, takeoff_detected=false, landing_detected=false.
-  - Sonuc: mevcut public loglar takeoff_land senaryosu icin zayif aday;
-    ikisi de yerden baslamiyor ve landing imzasi gostermiyor.
-  - README.md ve docs/architecture.md candidate inspector ornekleriyle
-    guncellendi.
-  - tests/test_inspect_log_candidates.py eklendi.
-  - Dogrulama:
-    python3 -m py_compile scripts/inspect_log_candidates.py
-    python3 -m unittest discover -s tests
-    python3 scripts/inspect_log_candidates.py --log-dir data/real/public_logs
-      --ground-altitude-m 0.3 --takeoff-altitude-m 1.0
+- Near-ground baslayan public log adayi arandi ve uygun aday bulundu.
+  - Once mevcut filtreyle 5 yeni aday indirildi:
+    python3 scripts/download_public_logs.py --mav-type Quadrotor
+      --flight-modes Mission --rating Good --min-duration-s 30
+      --max-duration-s 180 --min-flight-mode-duration-s Mission 30
+      --exclude-sys-hw PX4_SITL --max-logged-warnings 5
+      --max-logged-errors 0 --max-num 6 --delay 6
+  - Bu sette toplam 7 log inspect edildi:
+    readable=7, airborne_start=7, takeoff_detected=0, landing_detected=2.
+    Sonuc: ilk filtre seti hala takeoff baslangici iceren aday bulamadi.
+  - Metadata tarafinda daha dar sorgu denendi:
+    Mission + Takeoff + Land filtresi 0 aday verdi.
+    Mission + Land filtresi 33 aday verdi.
+  - Mission + Land grubundan 5 belirgin aday log-id ile indirildi:
+    794cf714-8968-4a28-b6ea-bb03bc345619
+    13a40e0f-aa6f-4c70-b273-73ce7e0ee193
+    29957bc3-b211-4751-bcc3-def2d74bb50d
+    c50d804d-7bd8-440c-81d6-c665c5f492a9
+    c544a541-94a9-447d-a015-fb07ef2e3a42
+  - Toplam 12 public log inspect edildi:
+    readable=12, airborne_start=10, takeoff_detected=2, landing_detected=4.
+  - En iyi aday:
+    data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
+    initial_altitude_m=0.139559, max_altitude_m=31.242043,
+    final_altitude_m=-0.289409, takeoff_time_s=2.539483,
+    landing_time_s=184.128474, starts_near_ground=true,
+    takeoff_detected=true, landing_detected=true.
+  - Ikinci takeoff adayi:
+    data/real/public_logs/13a40e0f-aa6f-4c70-b273-73ce7e0ee193.ulg
+    initial_altitude_m=-0.116082, max_altitude_m=6.256645,
+    final_altitude_m=0.364287, takeoff_time_s=4.781704,
+    takeoff_detected=true, landing_detected=false.
+  - En iyi aday ile takeoff-aligned compare calistirildi:
+    python3 scripts/compare_logs.py --config scenarios/takeoff_land_20m.yaml
+      --alignment takeoff
+      --sim results/runs/20260503_134517_03_takeoff_land_20m/px4.ulg
+      --real data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
+      --metrics
+        results/comparisons/public_log_near_ground_takeoff_aligned_metrics.json
+      --plot-dir
+        results/plots/comparisons/public_log_near_ground_takeoff_aligned
+  - Compare teknik olarak basarili, overall_pass=false.
+    Metrikler:
+    altitude_rmse=17.157718, velocity_rmse=2.408880,
+    roll_rmse=7.890418, pitch_rmse=9.053120, yaw_rmse=133.913798.
+    Alignment offsetleri:
+    sim_time_offset_s=7.544000, real_time_offset_s=2.539483.
+  - Yorum: Artik takeoff/landing iceren real aday bulundu; pass olmamasinin
+    ana nedeni real gorev profilinin SITL takeoff_land_20m ile eslesmemesi.
+    Real aday max altitude 31.24 m, mevcut SITL senaryosu 20 m hedefli.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Near-ground baslayan public log adayi bul
-    - Mevcut iki public log airborne-start oldugu icin takeoff_land
-      karsilastirmasi icin uygun degil.
-    - Yeni kalite filtreleriyle 3-5 logluk kucuk bir aday set indir.
-    - Hemen ardindan scripts/inspect_log_candidates.py ile ele:
-      starts_near_ground=true, takeoff_detected=true ve mumkunse
-      landing_detected=true olan adaylari one cikar.
-    - Uygun aday bulunursa takeoff-aligned compare'i tekrar calistir.
-    - Uygun aday bulunamazsa public log havuzunda takeoff_land benzeri
-      gorev bulmak icin daha dar metadata/ULog on analiz stratejisi belirle.
+1. Sim senaryosunu real aday profiline gore eslestir
+    - c50d804d real adayi takeoff/landing icin iyi, ancak max_altitude_m
+      31.24 m oldugu icin takeoff_land_20m ile dogrudan RMSE pass beklenmez.
+    - Yeni bir takeoff_land_30m veya takeoff_land_31m scenario dosyasi ekle.
+    - Bu senaryo ile SITL kosusu alip ayni real adayla --alignment takeoff
+      compare'i tekrar calistir.
+    - Alternatif olarak compare_logs.py icin altitude normalize/segment bazli
+      karsilastirma secenegini degerlendir.
 
 2. Compare faz karsilastirmasini derinlestir
     - Takeoff alignment yalnizca baslangic offsetini duzeltiyor.
