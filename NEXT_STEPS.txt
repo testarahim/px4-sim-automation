@@ -48,57 +48,78 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Landing fazi icin profil metrikleri eklendi.
-  - scripts/compare_logs.py artik segment bazli sim_profile ve real_profile
-    alanlarini uretiyor.
-  - Profil alanlari:
-    altitude_rate_mean_mps, descent_rate_mean_mps,
-    horizontal_speed_mean_mps, yaw_rate_abs_mean_deg_s.
-  - Yaw-rate circular yaw farkindan turetiliyor; 179/-179 derece gecisleri
-    yanlis buyuk rate uretmiyor.
-  - scripts/report_comparison.py Markdown/CSV raporlarina Segment Profile
-    Metrics tablosu ekliyor.
-  - README.md ve docs/architecture.md profil metriklerini anlatacak sekilde
-    guncellendi.
-  - tests/test_compare_logs.py ve tests/test_report_comparison.py profil
-    metrikleri icin genisletildi.
+- Landing davranisini eslestirecek sim senaryosu tasarlandi ve eklendi.
+  - scripts/run_mission.py artik opsiyonel mission.landing_profile alanini
+    destekliyor.
+  - Varsayilan davranis degismedi: landing_profile yoksa standart
+    action.land() akisi kullaniliyor.
+  - Yeni landing_profile modu:
+    mode: offboard_ned
+    NED north/east velocity, descent_rate ve yaw_rate komutlariyla
+    landing oncesi kontrollu offboard profil calistiriyor.
+  - Offboard profil duration_s veya end_altitude_m kosulundan biri saglanana
+    kadar suruyor; sonra offboard durdurulup normal action.land() ile final
+    landing/disarm bekleniyor.
+  - SITL denemelerinde offboard velocity descent bileseni gz_x500 uzerinde
+    beklenen irtifa azalmasini uretmedigi icin yeni senaryo descent_rate=0.0
+    kullanarak landing-oncesi yatay/yaw approach profiline indirildi.
+  - Yeni scenario dosyasi eklendi:
+    scenarios/profiled_landing_31m.yaml
+    takeoff_altitude=31, hover_time=10,
+    north_velocity_m_s=2.0, descent_rate_m_s=0.0,
+    yaw_rate_deg_s=10.0, duration_s=25, timeout=40.
+  - README.md ve docs/architecture.md yeni scenario ve landing_profile
+    semasini anlatacak sekilde guncellendi.
+  - tests/test_run_mission.py eklendi.
   - Testler calistirildi:
     python3 -m unittest discover -s tests
-    Sonuc: 18 test OK.
-  - 31 m takeoff-aligned compare tekrar uretildi:
-    python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
+    Sonuc: 24 test OK.
+  - SITL kosusu calistirildi:
+    bash run.sh scenarios/profiled_landing_31m.yaml
+  - Run artifact klasoru:
+    results/runs/20260503_205550/
+  - Profiled landing SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=31.0, max_altitude_m=31.053423,
+    final_altitude_m=-0.055759, max_altitude_error_m=0.053423,
+    hover_altitude_rmse_m=0.375990, landing_duration_s=51.284,
+    duration_s=88.952.
+  - Yeni sim logu c50d804d real adayi ile takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py
+      --config scenarios/profiled_landing_31m.yaml
       --alignment takeoff
-      --sim results/runs/20260503_194755/px4.ulg
+      --sim results/runs/20260503_205550/px4.ulg
       --real data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
       --metrics
-        results/comparisons/public_log_31m_takeoff_aligned_metrics.json
+        results/comparisons/public_log_profiled_landing_31m_takeoff_aligned_metrics.json
       --plot-dir
-        results/plots/comparisons/public_log_31m_takeoff_aligned
-  - Rapor tekrar guncellendi:
-    python3 scripts/report_comparison.py
-      --metrics
-        results/comparisons/public_log_31m_takeoff_aligned_metrics.json
-  - Landing profil sonucu:
-    sim descent_rate_mean_mps=1.188515,
-    real descent_rate_mean_mps=0.202797.
-    sim horizontal_speed_mean_mps=0.015105,
-    real horizontal_speed_mean_mps=2.123823.
-    sim yaw_rate_abs_mean_deg_s=0.099593,
-    real yaw_rate_abs_mean_deg_s=10.074640.
-  - Yorum: Real landing simden cok daha yavas iniyor, ayni zamanda belirgin
-    yatay hiz ve yaw-rate tasiyor. Landing altitude/yaw farkinin ana kaynagi
-    sadece sure farki degil, real logun hareketli/yonelen inis profili olabilir.
+        results/plots/comparisons/public_log_profiled_landing_31m_takeoff_aligned
+  - Compare overall_pass=false ama onceki 31 m duz profile gore bazi metrikler
+    iyilesti:
+    altitude_rmse 15.195406 -> 11.619522.
+    velocity_rmse 2.582378 -> 2.278256.
+  - Segment Profile Metrics sonucu:
+    hover_cruise sim horizontal_speed_mean_mps 0.020 -> 1.419.
+    hover_cruise sim yaw_rate_abs_mean_deg_s 0.133 -> 9.829.
+    landing sim descent_rate_mean_mps 1.189 -> 1.190.
+    landing sim horizontal_speed_mean_mps 0.015 -> 0.026.
+    landing sim yaw_rate_abs_mean_deg_s 0.100 -> 0.086.
+  - Yorum: Landing-oncesi offboard approach global altitude/velocity RMSE'yi
+    iyilestirdi ve hover_cruise fazina real loga daha yakin yatay/yaw hareketi
+    ekledi. Fakat final landing hala standart PX4 land oldugu icin landing
+    segmenti real logdaki yavas/yatay/yaw-rate'li inise benzemiyor.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Landing davranisini eslestirecek sim senaryosu tasarla
-    - Real landing daha yavas, daha yatay hareketli ve daha yuksek yaw-rate'e
-      sahip.
-    - Mevcut MAVSDK mission akisi duz takeoff/hover/land oldugu icin real log
-      landing profiline benzemiyor.
-    - Sonraki adim olarak landing oncesi yatay hareket/yaw komutu iceren yeni
-      bir scenario veya mission modu eklemeyi degerlendir.
+1. Final landing davranisini daha gercekci hale getir
+    - Offboard velocity descent denemeleri gz_x500 uzerinde beklenen irtifa
+      azalmasini uretmedi; sadece approach fazi guvenilir calisti.
+    - Alternatif olarak MAVSDK Mission/Waypoint tabanli descent veya PX4
+      parametreleriyle daha yavas final land profili denenebilir.
+    - Hedef: landing segmentinde descent_rate_mean_mps'i 0.2 m/s civarina,
+      horizontal_speed_mean_mps'i ~2 m/s civarina ve yaw_rate_abs_mean_deg_s'i
+      ~10 deg/s civarina yaklastirmak.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

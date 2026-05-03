@@ -62,6 +62,7 @@ Current starter scenarios:
 - `scenarios/takeoff_land_10m.yaml`
 - `scenarios/takeoff_land_20m.yaml`
 - `scenarios/takeoff_land_31m.yaml`
+- `scenarios/profiled_landing_31m.yaml`
 
 The legacy default config remains at `config/sim_config.yaml`.
 
@@ -70,7 +71,7 @@ The legacy default config remains at `config/sim_config.yaml`.
 - `run.sh`: Orchestrates one full scenario run and owns cleanup.
 - `scripts/start_sitl.py`: Starts PX4 SITL with `gz_x500`, filters PX4 console output, and shuts PX4 down cleanly.
 - `scripts/wait_for_sitl_ready.py`: Watches `logs/sitl.log` until PX4 reports the startup-ready pattern.
-- `scripts/run_mission.py`: Uses MAVSDK to connect, wait for preflight readiness, arm, take off, hover, land, and wait for disarm.
+- `scripts/run_mission.py`: Uses MAVSDK to connect, wait for preflight readiness, arm, take off, hover, optionally run an Offboard landing profile, land, and wait for disarm.
 - `scripts/extract_log.py`: Copies the newest PX4 `.ulg` log to both a latest alias and the current run artifact directory.
 - `scripts/analyze_log.py`: Computes altitude metrics, plots altitude, and writes `metrics.json`.
 - `scripts/run_batch.py`: Runs multiple scenarios sequentially and writes batch summaries.
@@ -157,6 +158,29 @@ Pass/fail evaluation currently uses:
 - `max_landing_final_altitude_m`
 
 The thresholds come from the active scenario/config YAML.
+
+## Landing Profiles
+
+The default mission flow uses PX4 `action.land()` after hover. Scenarios can
+instead define `mission.landing_profile.mode: offboard_ned` to command a NED
+velocity landing profile before the final `action.land()` call:
+
+```yaml
+mission:
+  landing_profile:
+    mode: offboard_ned
+    north_velocity_m_s: 2.0
+    east_velocity_m_s: 0.0
+    descent_rate_m_s: 0.0
+    yaw_rate_deg_s: 10.0
+    duration_s: 25
+    timeout: 40
+    setpoint_interval_s: 0.2
+```
+
+This is intended for synthetic profiles that better resemble real logs with
+horizontal motion and yaw-rate before landing. PX4 still owns the final
+`action.land()` descent.
 
 ## Simulation Vs Real Comparison
 

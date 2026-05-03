@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from mavsdk import System
 from mavsdk.action import ActionError
+from mavsdk.offboard import OffboardError, VelocityBodyYawspeed, VelocityNedYaw
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "sim_config.yaml"
@@ -44,6 +45,117 @@ def get_positive_number(config, section, key):
         raise ValueError(f"Config value must be a positive number: {section}.{key}")
 
     return value
+
+
+def get_optional_number(config, key, default, positive=False, non_negative=False):
+    value = config.get(key, default)
+    if not isinstance(value, (int, float)):
+        raise ValueError(f"Config value must be a number: mission.landing_profile.{key}")
+    if positive and value <= 0:
+        raise ValueError(
+            f"Config value must be a positive number: mission.landing_profile.{key}"
+        )
+    if non_negative and value < 0:
+        raise ValueError(
+            f"Config value must be non-negative: mission.landing_profile.{key}"
+        )
+    return float(value)
+
+
+def get_nullable_number(config, key, default=None, positive=False, non_negative=False):
+    value = config.get(key, default)
+    if value is None:
+        return None
+    return get_optional_number(
+        config,
+        key,
+        value,
+        positive=positive,
+        non_negative=non_negative,
+    )
+
+
+def load_landing_profile(config):
+    profile = config.get("mission", {}).get("landing_profile", {})
+    if profile is None:
+        return {"mode": "standard"}
+    if not isinstance(profile, dict):
+        raise ValueError("Config value must be a mapping: mission.landing_profile")
+
+    mode = profile.get("mode", "standard")
+    if mode not in ("standard", "offboard_body", "offboard_ned"):
+        raise ValueError(
+            "mission.landing_profile.mode must be standard, offboard_body, or offboard_ned"
+        )
+    if mode == "standard":
+        return {"mode": "standard"}
+
+    resolved_profile = {
+        "mode": mode,
+        "forward_velocity_m_s": get_optional_number(
+            profile,
+            "forward_velocity_m_s",
+            0.0,
+        ),
+        "right_velocity_m_s": get_optional_number(
+            profile,
+            "right_velocity_m_s",
+            0.0,
+        ),
+        "north_velocity_m_s": get_optional_number(
+            profile,
+            "north_velocity_m_s",
+            0.0,
+        ),
+        "east_velocity_m_s": get_optional_number(
+            profile,
+            "east_velocity_m_s",
+            0.0,
+        ),
+        "descent_rate_m_s": get_optional_number(
+            profile,
+            "descent_rate_m_s",
+            0.0,
+            non_negative=True,
+        ),
+        "yaw_rate_deg_s": get_optional_number(
+            profile,
+            "yaw_rate_deg_s",
+            0.0,
+        ),
+        "end_altitude_m": get_nullable_number(
+            profile,
+            "end_altitude_m",
+            None,
+            non_negative=True,
+        ),
+        "duration_s": get_nullable_number(
+            profile,
+            "duration_s",
+            None,
+            positive=True,
+        ),
+        "timeout": get_optional_number(
+            profile,
+            "timeout",
+            120.0,
+            positive=True,
+        ),
+        "setpoint_interval_s": get_optional_number(
+            profile,
+            "setpoint_interval_s",
+            0.2,
+            positive=True,
+        ),
+    }
+    if (
+        resolved_profile["end_altitude_m"] is None
+        and resolved_profile["duration_s"] is None
+    ):
+        raise ValueError(
+            "mission.landing_profile requires duration_s or end_altitude_m"
+        )
+    return resolved_profile
 
 
 async def wait_until_connected(drone, timeout):
@@ -114,6 +226,150 @@ async def arm_with_retry(drone, timeout):
     raise TimeoutError(f"Arming timed out after {timeout} seconds") from last_error
 
 
+def offboard_profile_is_complete(position, profile, start_time):
+    end_altitude = profile["end_altitude_m"]
+    duration_s = profile["duration_s"]
+    elapsed = asyncio.get_running_loop().time() - start_time
+    if end_altitude is not None and position.relative_altitude_m <= end_altitude:
+        return True, f"{position.relative_altitude_m:.1f} m"
+    if duration_s is not None and elapsed >= duration_s:
+        return True, f"{elapsed:.1f} s"
+    return False, None
+
+
+async def run_offboard_body_landing_profile(drone, profile):
+    setpoint = VelocityBodyYawspeed(
+        profile["forward_velocity_m_s"],
+        profile["right_velocity_m_s"],
+        profile["descent_rate_m_s"],
+        profile["yaw_rate_deg_s"],
+    )
+    timeout = profile["timeout"]
+    interval = profile["setpoint_interval_s"]
+    start_time = asyncio.get_running_loop().time()
+    deadline = start_time + timeout
+
+    await drone.offboard.set_velocity_body(setpoint)
+    try:
+        await drone.offboard.start()
+    except OffboardError as exc:
+        raise RuntimeError(f"Offboard landing profile failed to start: {exc}") from exc
+
+    report_event(
+        "offboard landing profile started",
+        (
+            f"forward={profile['forward_velocity_m_s']} m/s, "
+            f"right={profile['right_velocity_m_s']} m/s, "
+            f"down={profile['descent_rate_m_s']} m/s, "
+            f"yaw_rate={profile['yaw_rate_deg_s']} deg/s"
+        ),
+    )
+
+    try:
+        async for position in drone.telemetry.position():
+            await drone.offboard.set_velocity_body(setpoint)
+            complete, detail = offboard_profile_is_complete(
+                position,
+                profile,
+                start_time,
+            )
+            if complete:
+                report_event(
+                    "offboard landing profile complete",
+                    detail,
+                )
+                return
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("Timed out waiting for offboard landing profile")
+            await asyncio.sleep(interval)
+    finally:
+        try:
+            await drone.offboard.stop()
+        except OffboardError as exc:
+            report_event("offboard stop warning", str(exc))
+
+
+async def run_offboard_ned_landing_profile(drone, profile):
+    timeout = profile["timeout"]
+    interval = profile["setpoint_interval_s"]
+    start_time = asyncio.get_running_loop().time()
+    deadline = start_time + timeout
+
+    def setpoint():
+        elapsed = asyncio.get_running_loop().time() - start_time
+        yaw_deg = profile["yaw_rate_deg_s"] * elapsed
+        return VelocityNedYaw(
+            profile["north_velocity_m_s"],
+            profile["east_velocity_m_s"],
+            profile["descent_rate_m_s"],
+            yaw_deg,
+        )
+
+    await drone.offboard.set_velocity_ned(setpoint())
+    try:
+        await drone.offboard.start()
+    except OffboardError as exc:
+        raise RuntimeError(f"Offboard landing profile failed to start: {exc}") from exc
+
+    report_event(
+        "offboard landing profile started",
+        (
+            f"north={profile['north_velocity_m_s']} m/s, "
+            f"east={profile['east_velocity_m_s']} m/s, "
+            f"down={profile['descent_rate_m_s']} m/s, "
+            f"yaw_rate={profile['yaw_rate_deg_s']} deg/s"
+        ),
+    )
+
+    try:
+        async for position in drone.telemetry.position():
+            await drone.offboard.set_velocity_ned(setpoint())
+            complete, detail = offboard_profile_is_complete(
+                position,
+                profile,
+                start_time,
+            )
+            if complete:
+                report_event(
+                    "offboard landing profile complete",
+                    detail,
+                )
+                return
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("Timed out waiting for offboard landing profile")
+            await asyncio.sleep(interval)
+    finally:
+        try:
+            await drone.offboard.stop()
+        except OffboardError as exc:
+            report_event("offboard stop warning", str(exc))
+
+
+async def execute_landing(drone, landing_profile, landing_timeout):
+    if landing_profile["mode"] == "offboard_body":
+        await run_offboard_body_landing_profile(drone, landing_profile)
+    elif landing_profile["mode"] == "offboard_ned":
+        await run_offboard_ned_landing_profile(drone, landing_profile)
+
+    print("Landing...", flush=True)
+    await drone.action.land()
+    await wait_for_telemetry_value(
+        drone.telemetry.in_air(),
+        False,
+        landing_timeout,
+        "landing detection",
+    )
+    report_event("landing detected")
+    await wait_for_telemetry_value(
+        drone.telemetry.armed(),
+        False,
+        landing_timeout,
+        "disarm after landing",
+    )
+    report_event("disarmed")
+    print("Landing tamamlandı.", flush=True)
+
+
 async def run(config_path=CONFIG_PATH):
     config = load_config(config_path)
     takeoff_altitude = get_positive_number(config, "mission", "takeoff_altitude")
@@ -122,6 +378,7 @@ async def run(config_path=CONFIG_PATH):
     climb_timeout = get_positive_number(config, "mission", "climb_timeout")
     altitude_tolerance = get_positive_number(config, "mission", "altitude_tolerance")
     landing_timeout = get_positive_number(config, "mission", "landing_timeout")
+    landing_profile = load_landing_profile(config)
     connection_timeout = get_positive_number(config, "connection", "timeout")
     preflight_timeout = get_positive_number(config, "connection", "preflight_timeout")
     arm_timeout = get_positive_number(config, "connection", "arm_timeout")
@@ -166,23 +423,7 @@ async def run(config_path=CONFIG_PATH):
     print(f"Hover bekleniyor: {hover_time} s", flush=True)
     await asyncio.sleep(hover_time)
 
-    print("Landing...", flush=True)
-    await drone.action.land()
-    await wait_for_telemetry_value(
-        drone.telemetry.in_air(),
-        False,
-        landing_timeout,
-        "landing detection",
-    )
-    report_event("landing detected")
-    await wait_for_telemetry_value(
-        drone.telemetry.armed(),
-        False,
-        landing_timeout,
-        "disarm after landing",
-    )
-    report_event("disarmed")
-    print("Landing tamamlandı.", flush=True)
+    await execute_landing(drone, landing_profile, landing_timeout)
 
 if __name__ == "__main__":
     args = parse_args()

@@ -61,6 +61,7 @@ Available starter scenarios:
 - `scenarios/takeoff_land_10m.yaml`
 - `scenarios/takeoff_land_20m.yaml`
 - `scenarios/takeoff_land_31m.yaml`
+- `scenarios/profiled_landing_31m.yaml`
 - `scenarios/short_hover.yaml`
 
 ## Batch Scenario Run
@@ -223,6 +224,8 @@ Scenario YAML files define:
 - SITL startup readiness timeout and log patterns
 - MAVSDK connection/preflight/arm timeouts
 - Mission takeoff altitude, hover time, and landing timeout
+- Optional `mission.landing_profile` settings for Offboard NED/body-frame
+  horizontal/descent/yaw-rate landing profiles
 - Pass/fail thresholds
 
 The legacy default config remains available at:
