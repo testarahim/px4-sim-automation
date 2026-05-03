@@ -5,7 +5,8 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -60,6 +61,10 @@ def batch_id_now():
     return datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+def timestamp_now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
 def resolve_scenarios(args):
     scenario_dir = (
         args.scenario_dir
@@ -112,6 +117,9 @@ def write_csv(path, rows):
         "status",
         "returncode",
         "overall_pass",
+        "started_at",
+        "finished_at",
+        "duration_s",
         "target_altitude_m",
         "max_altitude_error_m",
         "hover_altitude_rmse_m",
@@ -139,6 +147,7 @@ def print_summary(rows, summary_json, summary_csv):
         ("scenario", "Scenario"),
         ("status", "Status"),
         ("overall_pass", "Pass"),
+        ("duration_s", "Duration"),
         ("max_altitude_error_m", "Alt Err"),
         ("hover_altitude_rmse_m", "Hover RMSE"),
         ("landing_final_altitude_abs_m", "Land Abs"),
@@ -176,6 +185,8 @@ def run_scenario(index, scenario, batch_id, batch_dir, results_dir):
     command = ["bash", str(RUN_SCRIPT), str(scenario)]
     print(f"[batch] Running {scenario.name} -> {run_id}", flush=True)
 
+    started_at = timestamp_now()
+    start_time = time.monotonic()
     with runner_log.open("w", encoding="utf-8") as log_file:
         process = subprocess.run(
             command,
@@ -186,6 +197,8 @@ def run_scenario(index, scenario, batch_id, batch_dir, results_dir):
             text=True,
             check=False,
         )
+    duration_s = time.monotonic() - start_time
+    finished_at = timestamp_now()
 
     metrics_path = run_dir / "metrics.json"
     metrics = load_metrics(metrics_path)
@@ -205,6 +218,9 @@ def run_scenario(index, scenario, batch_id, batch_dir, results_dir):
         "status": status,
         "returncode": process.returncode,
         "overall_pass": overall_pass,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "duration_s": duration_s,
         "target_altitude_m": metric_value(metrics, "target_altitude_m"),
         "max_altitude_error_m": metric_value(metrics, "max_altitude_error_m"),
         "hover_altitude_rmse_m": metric_value(metrics, "hover_altitude_rmse_m"),
@@ -226,6 +242,8 @@ def main():
     batch_dir = results_dir / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
 
+    batch_started_at = timestamp_now()
+    batch_start_time = time.monotonic()
     rows = []
     for index, scenario in enumerate(scenarios, start=1):
         row = run_scenario(index, scenario, batch_id, batch_dir, results_dir)
@@ -238,8 +256,13 @@ def main():
         if args.stop_on_fail and row["status"] != "passed":
             break
 
+    batch_duration_s = time.monotonic() - batch_start_time
+    batch_finished_at = timestamp_now()
     summary = {
         "batch_id": batch_id,
+        "started_at": batch_started_at,
+        "finished_at": batch_finished_at,
+        "duration_s": batch_duration_s,
         "scenario_count": len(rows),
         "passed": sum(1 for row in rows if row["status"] == "passed"),
         "failed": sum(1 for row in rows if row["status"] != "passed"),

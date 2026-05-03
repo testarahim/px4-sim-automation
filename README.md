@@ -81,6 +81,9 @@ Batch summaries are written to:
 - `results/batches/<batch_id>/summary.json`
 - `results/batches/<batch_id>/summary.csv`
 
+Batch summaries include start time, finish time, duration, pass/fail status,
+and per-scenario metrics.
+
 ## Outputs
 
 The latest single-run aliases are:

@@ -35,40 +35,31 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Tam pipeline dogrulamasi yapildi.
-  - Tek senaryo komutu calistirildi:
-    bash run.sh scenarios/takeoff_land_20m.yaml
-  - Sonuc: overall_pass=true.
-  - Artifact klasoru: results/runs/20260503_134109/
-  - Batch komutu calistirildi:
-    python3 scripts/run_batch.py --stop-on-fail
-  - Batch sonucu:
-    results/batches/20260503_134517/summary.json
-  - Batch overall_pass=true; 3 senaryo gecti, 0 senaryo kaldi.
-    - short_hover.yaml: max_altitude_error_m=0.067702,
-      hover_altitude_rmse_m=0.371037,
-      landing_final_altitude_abs_m=0.057682.
-    - takeoff_land_10m.yaml: max_altitude_error_m=0.026610,
-      hover_altitude_rmse_m=0.213678,
-      landing_final_altitude_abs_m=0.044380.
-    - takeoff_land_20m.yaml: max_altitude_error_m=0.051296,
-      hover_altitude_rmse_m=0.293785,
-      landing_final_altitude_abs_m=0.050281.
-- Test sirasinda PX4 rootfs stale symlink problemi goruldu ve duzeltildi.
-  - scripts/start_sitl.py SITL baslatmadan once sadece beklenen rootfs/etc
-    ve rootfs/test_data symlink'lerini temizliyor.
-  - Bu, ardisik batch kosularinda PX4'un "Error creating symlink" hatasini
-    engelliyor.
+- Batch runner zaman raporlamasi eklendi.
+  - scripts/run_batch.py summary.json icine batch seviyesinde su alanlari
+    yaziyor:
+    started_at, finished_at, duration_s.
+  - Her senaryo sonucu icin de started_at, finished_at ve duration_s
+    alanlari ekleniyor.
+  - summary.csv dosyasina ayni senaryo seviyesi zaman alanlari eklendi.
+  - Terminal ozet tablosuna Duration sutunu eklendi.
+  - README batch summary aciklamasi bu alanlari kapsayacak sekilde
+    guncellendi.
+- Hafif dogrulama yapildi:
+  - python3 -m py_compile scripts/run_batch.py
+  - python3 scripts/run_batch.py --help
+  - SITL baslatmadan monkeypatch testiyle summary.json ve summary.csv
+    zaman alanlari kontrol edildi.
 
 Siradaki Yapilacaklar
 ---------------------
 
 1. Ileride eklenebilecek iyilestirmeler
-    - Batch runner icin toplam sure ve baslangic/bitis zamanlarini summary'ye
-      ekle.
     - compare_logs.py threshold degerlerini scenario/config YAML'den opsiyonel
       okuyabilir hale getir.
     - docs/architecture.md dosyasini yeni scenario/batch akisina gore genislet.
+    - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
+      scenario listesi ve git commit hash'i.
 
 Onemli Teknik Notlar
 --------------------
