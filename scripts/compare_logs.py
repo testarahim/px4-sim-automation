@@ -28,6 +28,7 @@ DEFAULT_THRESHOLDS = {
     "attitude_rmse": 5.0,
 }
 DEFAULT_TAKEOFF_THRESHOLD_M = 0.3
+MIN_SEGMENT_SAMPLES = 2
 
 
 def parse_args():
@@ -215,6 +216,20 @@ def first_time_at_or_above(time_s, values, threshold):
     return float(time_s[int(matching_indexes[0])])
 
 
+def first_index_at_or_above(values, threshold, start_index=0):
+    matching_indexes = np.flatnonzero(values[start_index:] >= threshold)
+    if matching_indexes.size == 0:
+        return None
+    return int(start_index + matching_indexes[0])
+
+
+def first_index_at_or_below(values, threshold, start_index=0):
+    matching_indexes = np.flatnonzero(values[start_index:] <= threshold)
+    if matching_indexes.size == 0:
+        return None
+    return int(start_index + matching_indexes[0])
+
+
 def default_takeoff_threshold(config):
     target_altitude = config.get("mission", {}).get("takeoff_altitude")
     if not isinstance(target_altitude, (int, float)) or target_altitude <= 0:
@@ -289,6 +304,202 @@ def align_and_compare(sim_t, sim_values, real_t, real_values):
     return sim_t_aligned, sim_values_aligned, real_values_aligned, rmse, details
 
 
+def finite_float(value):
+    if value is None:
+        return None
+    if not np.isfinite(value):
+        return None
+    return float(value)
+
+
+def segment_metadata(start_time, end_time):
+    if start_time is None or end_time is None or end_time <= start_time:
+        return None
+    return {
+        "start_s": float(start_time),
+        "end_s": float(end_time),
+        "duration_s": float(end_time - start_time),
+    }
+
+
+def detect_segments(time_s, altitude_m, config, alignment, side):
+    mission = config.get("mission", {})
+    target_altitude = mission.get("takeoff_altitude")
+    altitude_tolerance = mission.get("altitude_tolerance", 1.0)
+    hover_time = mission.get("hover_time", 0.0)
+    landing_altitude_threshold = config.get("thresholds", {}).get(
+        "max_landing_final_altitude_m",
+        DEFAULT_TAKEOFF_THRESHOLD_M,
+    )
+
+    if not isinstance(target_altitude, (int, float)) or target_altitude <= 0:
+        return {}
+    if not isinstance(altitude_tolerance, (int, float)) or altitude_tolerance < 0:
+        altitude_tolerance = 1.0
+    if not isinstance(hover_time, (int, float)) or hover_time < 0:
+        hover_time = 0.0
+    if (
+        not isinstance(landing_altitude_threshold, (int, float))
+        or landing_altitude_threshold < 0
+    ):
+        landing_altitude_threshold = DEFAULT_TAKEOFF_THRESHOLD_M
+
+    shifted_t = shifted_time(time_s, alignment, side)
+    takeoff_threshold = (
+        alignment["takeoff_threshold_m"]
+        if alignment["method"] == "takeoff"
+        else default_takeoff_threshold(config)
+    )
+    target_floor = target_altitude - altitude_tolerance
+
+    takeoff_start_index = first_index_at_or_above(altitude_m, takeoff_threshold)
+    target_reached_index = first_index_at_or_above(
+        altitude_m,
+        target_floor,
+        takeoff_start_index or 0,
+    )
+
+    takeoff_start_time = (
+        finite_float(shifted_t[takeoff_start_index])
+        if takeoff_start_index is not None
+        else None
+    )
+    target_reached_time = (
+        finite_float(shifted_t[target_reached_index])
+        if target_reached_index is not None
+        else None
+    )
+
+    landing_start_time = None
+    landing_start_index = None
+    landing_end_time = None
+    if target_reached_index is not None and target_reached_time is not None:
+        earliest_landing_time = target_reached_time + float(hover_time)
+        earliest_landing_index = int(
+            np.searchsorted(shifted_t, earliest_landing_time, side="left")
+        )
+        if earliest_landing_index < len(shifted_t):
+            landing_start_index = first_index_at_or_below(
+                altitude_m,
+                target_floor,
+                earliest_landing_index,
+            )
+
+    if landing_start_index is not None:
+        landing_start_time = finite_float(shifted_t[landing_start_index])
+        landing_end_index = first_index_at_or_below(
+            altitude_m,
+            landing_altitude_threshold,
+            landing_start_index,
+        )
+        if landing_end_index is not None:
+            landing_end_time = finite_float(shifted_t[landing_end_index])
+
+    cruise_end_time = landing_start_time
+    if cruise_end_time is None and landing_end_time is not None:
+        cruise_end_time = landing_end_time
+    if cruise_end_time is None and target_reached_time is not None:
+        cruise_end_time = finite_float(shifted_t[-1])
+
+    return {
+        "takeoff_climb": segment_metadata(takeoff_start_time, target_reached_time),
+        "hover_cruise": segment_metadata(target_reached_time, cruise_end_time),
+        "landing": segment_metadata(landing_start_time, landing_end_time),
+    }
+
+
+def segment_values(time_s, values, segment):
+    if segment is None:
+        return None, None
+
+    mask = (time_s >= segment["start_s"]) & (time_s <= segment["end_s"])
+    segment_t = time_s[mask]
+    segment_data = values[mask]
+    if segment_t.size < MIN_SEGMENT_SAMPLES:
+        return None, None
+
+    duration = segment["duration_s"]
+    if duration <= 0:
+        return None, None
+
+    normalized_t = (segment_t - segment["start_s"]) / duration
+    return normalized_t, segment_data
+
+
+def compare_segment_series(
+    sim_t,
+    sim_values,
+    sim_segment,
+    real_t,
+    real_values,
+    real_segment,
+):
+    sim_segment_t, sim_segment_values = segment_values(sim_t, sim_values, sim_segment)
+    real_segment_t, real_segment_values = segment_values(
+        real_t,
+        real_values,
+        real_segment,
+    )
+    if sim_segment_t is None or real_segment_t is None:
+        return None, {
+            "available": False,
+            "sample_count": 0,
+        }
+
+    common_t_start = max(sim_segment_t[0], real_segment_t[0])
+    common_t_end = min(sim_segment_t[-1], real_segment_t[-1])
+    if common_t_end <= common_t_start:
+        return None, {
+            "available": False,
+            "sample_count": 0,
+        }
+
+    mask = (sim_segment_t >= common_t_start) & (sim_segment_t <= common_t_end)
+    sim_aligned_t = sim_segment_t[mask]
+    sim_aligned_values = sim_segment_values[mask]
+    if sim_aligned_t.size < MIN_SEGMENT_SAMPLES:
+        return None, {
+            "available": False,
+            "sample_count": int(sim_aligned_t.size),
+        }
+
+    real_interp = interp1d(real_segment_t, real_segment_values, bounds_error=True)
+    real_aligned_values = real_interp(sim_aligned_t)
+
+    return compute_rmse(sim_aligned_values, real_aligned_values), {
+        "available": True,
+        "normalized_time_start": float(common_t_start),
+        "normalized_time_end": float(common_t_end),
+        "sample_count": int(sim_aligned_t.size),
+    }
+
+
+def compute_segment_rmse(series, segments):
+    segment_metrics = {}
+    for segment_name in ("takeoff_climb", "hover_cruise", "landing"):
+        sim_segment = segments["sim"].get(segment_name)
+        real_segment = segments["real"].get(segment_name)
+        segment_metrics[segment_name] = {
+            "sim": sim_segment,
+            "real": real_segment,
+            "comparison_axis": "normalized_segment_time",
+        }
+
+        for series_name, (sim_t, sim_values, real_t, real_values) in series.items():
+            rmse, details = compare_segment_series(
+                sim_t,
+                sim_values,
+                sim_segment,
+                real_t,
+                real_values,
+                real_segment,
+            )
+            segment_metrics[segment_name][f"{series_name}_rmse"] = rmse
+            segment_metrics[segment_name][series_name] = details
+
+    return segment_metrics
+
+
 def evaluate(metrics, thresholds):
     altitude_pass = metrics["altitude_rmse"] <= thresholds["altitude_rmse"]
     velocity_pass = metrics["velocity_rmse"] <= thresholds["velocity_rmse"]
@@ -322,19 +533,23 @@ def plot_comparison(time_s, sim_data, real_data, name, plot_dir):
     return plot_path
 
 
-def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
-    sim_t, sim_altitude = get_altitude(sim_ulog)
-    real_t, real_altitude = get_altitude(real_ulog)
+def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
+    sim_t_altitude_raw, sim_altitude = get_altitude(sim_ulog)
+    real_t_altitude_raw, real_altitude = get_altitude(real_ulog)
+    sim_t_altitude_shifted = shifted_time(sim_t_altitude_raw, alignment, "sim")
+    real_t_altitude_shifted = shifted_time(real_t_altitude_raw, alignment, "real")
     sim_t_alt, sim_alt, real_alt, altitude_rmse, altitude_details = align_and_compare(
-        shifted_time(sim_t, alignment, "sim"),
+        sim_t_altitude_shifted,
         sim_altitude,
-        shifted_time(real_t, alignment, "real"),
+        real_t_altitude_shifted,
         real_altitude,
     )
     altitude_plot = plot_comparison(sim_t_alt, sim_alt, real_alt, "altitude", plot_dir)
 
     sim_t, sim_speed = get_velocity(sim_ulog)
     real_t, real_speed = get_velocity(real_ulog)
+    sim_t_velocity_shifted = shifted_time(sim_t, alignment, "sim")
+    real_t_velocity_shifted = shifted_time(real_t, alignment, "real")
     (
         sim_t_speed,
         sim_speed_al,
@@ -342,9 +557,9 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
         velocity_rmse,
         velocity_details,
     ) = align_and_compare(
-        shifted_time(sim_t, alignment, "sim"),
+        sim_t_velocity_shifted,
         sim_speed,
-        shifted_time(real_t, alignment, "real"),
+        real_t_velocity_shifted,
         real_speed,
     )
     velocity_plot = plot_comparison(
@@ -357,6 +572,8 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
 
     sim_t, sim_roll, sim_pitch, sim_yaw = get_attitude(sim_ulog)
     real_t, real_roll, real_pitch, real_yaw = get_attitude(real_ulog)
+    sim_t_attitude_shifted = shifted_time(sim_t, alignment, "sim")
+    real_t_attitude_shifted = shifted_time(real_t, alignment, "real")
 
     (
         sim_t_roll,
@@ -365,9 +582,9 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
         roll_rmse,
         roll_details,
     ) = align_and_compare(
-        shifted_time(sim_t, alignment, "sim"),
+        sim_t_attitude_shifted,
         sim_roll,
-        shifted_time(real_t, alignment, "real"),
+        real_t_attitude_shifted,
         real_roll,
     )
     roll_plot = plot_comparison(
@@ -385,9 +602,9 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
         pitch_rmse,
         pitch_details,
     ) = align_and_compare(
-        shifted_time(sim_t, alignment, "sim"),
+        sim_t_attitude_shifted,
         sim_pitch,
-        shifted_time(real_t, alignment, "real"),
+        real_t_attitude_shifted,
         real_pitch,
     )
     pitch_plot = plot_comparison(
@@ -405,12 +622,64 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
         yaw_rmse,
         yaw_details,
     ) = align_and_compare(
-        shifted_time(sim_t, alignment, "sim"),
+        sim_t_attitude_shifted,
         sim_yaw,
-        shifted_time(real_t, alignment, "real"),
+        real_t_attitude_shifted,
         real_yaw,
     )
     yaw_plot = plot_comparison(sim_t_yaw, sim_yaw_al, real_yaw_al, "yaw", plot_dir)
+
+    segments = {
+        "sim": detect_segments(
+            sim_t_altitude_raw,
+            sim_altitude,
+            config,
+            alignment,
+            "sim",
+        ),
+        "real": detect_segments(
+            real_t_altitude_raw,
+            real_altitude,
+            config,
+            alignment,
+            "real",
+        ),
+    }
+    segment_metrics = compute_segment_rmse(
+        {
+            "altitude": (
+                sim_t_altitude_shifted,
+                sim_altitude,
+                real_t_altitude_shifted,
+                real_altitude,
+            ),
+            "velocity": (
+                sim_t_velocity_shifted,
+                sim_speed,
+                real_t_velocity_shifted,
+                real_speed,
+            ),
+            "roll": (
+                sim_t_attitude_shifted,
+                sim_roll,
+                real_t_attitude_shifted,
+                real_roll,
+            ),
+            "pitch": (
+                sim_t_attitude_shifted,
+                sim_pitch,
+                real_t_attitude_shifted,
+                real_pitch,
+            ),
+            "yaw": (
+                sim_t_attitude_shifted,
+                sim_yaw,
+                real_t_attitude_shifted,
+                real_yaw,
+            ),
+        },
+        segments,
+    )
 
     return {
         "altitude_rmse": altitude_rmse,
@@ -418,6 +687,7 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment):
         "roll_rmse": roll_rmse,
         "pitch_rmse": pitch_rmse,
         "yaw_rmse": yaw_rmse,
+        "segments": segment_metrics,
     }, {
         "altitude": str(altitude_plot),
         "velocity": str(velocity_plot),
@@ -455,6 +725,7 @@ def main():
         real_ulog,
         args.plot_dir,
         alignment,
+        config,
     )
     thresholds = resolve_thresholds(args, config)
     metrics["evaluation"] = evaluate(metrics, thresholds)
@@ -476,6 +747,8 @@ def main():
     print(f"Roll RMSE: {metrics['roll_rmse']}")
     print(f"Pitch RMSE: {metrics['pitch_rmse']}")
     print(f"Yaw RMSE: {metrics['yaw_rmse']}")
+    for segment_name, segment in metrics["segments"].items():
+        print(f"{segment_name} altitude RMSE: {segment['altitude_rmse']}")
     print(f"Overall pass: {metrics['evaluation']['overall_pass']}")
     print(f"Saved metrics: {args.metrics}")
     print(f"Saved plots: {args.plot_dir}")

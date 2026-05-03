@@ -149,6 +149,11 @@ The comparison computes:
 - `pitch_rmse`
 - `yaw_rmse`
 
+It also writes phase-based metrics under `segments` for `takeoff_climb`,
+`hover_cruise`, and `landing`. Segment metrics are reported separately from
+`overall_pass` and compare each phase on normalized segment time so logs with
+different phase durations can still be inspected.
+
 Default comparison outputs:
 
 - `results/compare_metrics.json`

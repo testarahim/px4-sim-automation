@@ -52,6 +52,58 @@ class CompareLogAlignmentTests(unittest.TestCase):
         self.assertEqual(rmse, 0.0)
         self.assertEqual(details["sample_count"], 4)
 
+    def test_detect_segments_uses_altitude_phase_boundaries(self):
+        alignment = {
+            "method": "takeoff",
+            "takeoff_threshold_m": 0.5,
+            "sim_time_offset_s": 0.0,
+            "real_time_offset_s": 0.0,
+        }
+        config = {
+            "mission": {
+                "takeoff_altitude": 10.0,
+                "altitude_tolerance": 1.0,
+                "hover_time": 1.0,
+            },
+            "thresholds": {
+                "max_landing_final_altitude_m": 0.3,
+            },
+        }
+
+        segments = compare_logs.detect_segments(
+            np.arange(0.0, 11.0),
+            np.array(
+                [0.0, 0.3, 1.5, 5.0, 9.0, 10.0, 10.0, 9.0, 5.0, 0.2, 0.0]
+            ),
+            config,
+            alignment,
+            "sim",
+        )
+
+        self.assertEqual(segments["takeoff_climb"]["start_s"], 2.0)
+        self.assertEqual(segments["takeoff_climb"]["end_s"], 4.0)
+        self.assertEqual(segments["hover_cruise"]["start_s"], 4.0)
+        self.assertEqual(segments["hover_cruise"]["end_s"], 7.0)
+        self.assertEqual(segments["landing"]["start_s"], 7.0)
+        self.assertEqual(segments["landing"]["end_s"], 9.0)
+
+    def test_compare_segment_series_normalizes_different_segment_durations(self):
+        sim_segment = {"start_s": 10.0, "end_s": 20.0, "duration_s": 10.0}
+        real_segment = {"start_s": 100.0, "end_s": 140.0, "duration_s": 40.0}
+
+        rmse, details = compare_logs.compare_segment_series(
+            np.array([10.0, 15.0, 20.0]),
+            np.array([0.0, 1.0, 2.0]),
+            sim_segment,
+            np.array([100.0, 120.0, 140.0]),
+            np.array([0.0, 1.0, 2.0]),
+            real_segment,
+        )
+
+        self.assertEqual(rmse, 0.0)
+        self.assertTrue(details["available"])
+        self.assertEqual(details["sample_count"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

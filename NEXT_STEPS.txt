@@ -48,23 +48,27 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Sim senaryosu real aday profiline yaklastirildi ve 31 m kosu alindi.
-  - Yeni scenario dosyasi eklendi:
-    scenarios/takeoff_land_31m.yaml
-    takeoff_altitude=31, hover_time=10, climb_timeout=60,
-    altitude_tolerance=1.2, landing_timeout=40.
-  - README.md ve docs/architecture.md scenario listeleri guncellendi.
-  - SITL kosusu calistirildi:
-    bash run.sh scenarios/takeoff_land_31m.yaml
-  - Run artifact klasoru:
-    results/runs/20260503_194755/
-  - 31 m SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=31.0, max_altitude_m=30.973637,
-    final_altitude_m=-0.030627, max_altitude_error_m=0.026363,
-    hover_altitude_rmse_m=0.377105, landing_duration_s=26.104,
-    duration_s=63.904.
-  - 31 m sim logu ile c50d804d real adayi takeoff-aligned compare edildi:
+- Compare faz karsilastirmasi derinlestirildi.
+  - scripts/compare_logs.py artik global RMSE'lere ek olarak segment bazli
+    metrikler uretiyor.
+  - Segmentler:
+    takeoff_climb, hover_cruise, landing.
+  - Segment sinirlari her logun kendi altitude profili uzerinden scenario
+    takeoff_altitude, altitude_tolerance, hover_time ve
+    max_landing_final_altitude_m degerleriyle tespit ediliyor.
+  - Segment RMSE hesaplari normalized_segment_time uzerinde yapiliyor; boylece
+    real log ve sim log faz sureleri farkli olsa da profil sekli ayrica
+    incelenebiliyor.
+  - Segment metrikleri JSON'da segments altinda raporlaniyor ve overall_pass'e
+    dahil edilmiyor.
+  - README.md ve docs/architecture.md segment metriklerini anlatacak sekilde
+    guncellendi.
+  - tests/test_compare_logs.py icine segment tespiti ve normalize segment
+    karsilastirmasi testleri eklendi.
+  - Testler calistirildi:
+    python3 -m unittest discover -s tests
+    Sonuc: 7 test OK.
+  - 31 m sim logu ile c50d804d real adayi tekrar takeoff-aligned compare edildi:
     python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
       --alignment takeoff
       --sim results/runs/20260503_194755/px4.ulg
@@ -74,26 +78,28 @@ Son Yapilan Is
       --plot-dir
         results/plots/comparisons/public_log_31m_takeoff_aligned
   - Compare teknik olarak basarili, overall_pass=false.
-    Metrikler:
+    Global metrikler:
     altitude_rmse=15.195406, velocity_rmse=2.582378,
     roll_rmse=7.476728, pitch_rmse=9.387935, yaw_rmse=139.826337.
+    Segment altitude RMSE metrikleri:
+    takeoff_climb=2.226933, hover_cruise=0.508990,
+    landing=13.075990.
     Alignment offsetleri:
     takeoff_threshold_m=1.55, sim_time_offset_s=9.056000,
     real_time_offset_s=2.844447.
-  - 20 m compare'e gore altitude_rmse 17.157718 -> 15.195406 iyilesti.
-  - Yorum: Sadece hedef irtifayi eslestirmek yeterli degil; real log gorev
-    suresi ve profil sekli SITL takeoff/hover/land profilinden farkli.
+  - Yorum: Segment metrikleri global RMSE'nin neden yuksek oldugunu daha iyi
+    ayiriyor. Hover/cruise altitude profili oldukca yakin, asil fark landing
+    fazinda ve attitude/yaw tarafinda gorunuyor.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Compare faz karsilastirmasini derinlestir
-    - Takeoff alignment yalnizca baslangic offsetini duzeltiyor.
-    - Sonraki adim olarak takeoff/climb, hover/cruise ve landing segmentlerini
-      ayri cikartip segment bazli RMSE uretmeyi degerlendir.
-    - Segment bazli metrikler genel overall_pass'ten ayri raporlanmali.
-    - c50d804d real logu uzun ve farkli profilli oldugu icin global RMSE
-      yerine faz bazli karsilastirma daha anlamli olabilir.
+1. Segment karsilastirmasini yorumlanabilir rapora donustur
+    - Segment metriklerinden kisa bir Markdown/CSV raporu uretmeyi degerlendir.
+    - Landing fazinda real logun cok uzun inis profili sim ile farkli oldugu
+      icin duration oranlarini ve segment surelerini raporda one cikar.
+    - Yaw RMSE icin aci wrap-around etkisini incele; gerekirse yaw farkini
+      dairesel aci farki olarak hesapla.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

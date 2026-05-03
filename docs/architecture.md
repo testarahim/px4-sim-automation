@@ -188,6 +188,13 @@ It computes:
 - `pitch_rmse`
 - `yaw_rmse`
 
+The metrics JSON also contains a `segments` object with `takeoff_climb`,
+`hover_cruise`, and `landing` entries. Segment boundaries are detected from
+each log's altitude profile using the scenario target altitude, tolerance,
+hover time, and landing altitude threshold. Segment RMSE values are computed on
+normalized segment time and are intentionally not folded into the global
+`overall_pass`.
+
 Thresholds can come from a scenario/config file. CLI threshold arguments still
 override config values.
 
