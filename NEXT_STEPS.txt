@@ -48,20 +48,21 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- Yaw RMSE aci wrap-around etkisi duzeltildi.
-  - scripts/compare_logs.py icine dairesel derece farki eklendi.
-  - yaw_rmse artik 179/-179 derece gibi sinir gecislerinde 358 derece yerine
-    en kisa aci farkini kullaniyor.
-  - Global yaw RMSE ve segment bazli yaw RMSE ayni dairesel hesaplamayi
-    kullaniyor.
-  - Roll/pitch metrikleri degistirilmedi; yalnizca yaw acisi dairesel
-    degerlendiriliyor.
-  - README.md ve docs/architecture.md yaw_rmse'nin circular angle difference
-    kullandigini belirtecek sekilde guncellendi.
-  - tests/test_compare_logs.py icine circular yaw RMSE testleri eklendi.
+- Heading-normalized yaw metrikleri eklendi.
+  - scripts/compare_logs.py artik global ve segment bazli
+    yaw_heading_offset_deg ve yaw_heading_normalized_rmse alanlarini uretiyor.
+  - yaw_heading_normalized_rmse, circular yaw farkindan ortalama heading
+    offset'ini cikararak kalan yaw profil farkini olcuyor.
+  - Mevcut yaw_rmse korunuyor; yeni metrik ek analiz alani olarak raporlaniyor.
+  - scripts/report_comparison.py Markdown/CSV raporlarina yeni yaw heading
+    offset ve heading-normalized RMSE alanlarini ekliyor.
+  - README.md ve docs/architecture.md yeni metrikleri anlatacak sekilde
+    guncellendi.
+  - tests/test_compare_logs.py ve tests/test_report_comparison.py yeni alanlar
+    icin genisletildi.
   - Testler calistirildi:
     python3 -m unittest discover -s tests
-    Sonuc: 13 test OK.
+    Sonuc: 16 test OK.
   - 31 m takeoff-aligned compare tekrar uretildi:
     python3 scripts/compare_logs.py --config scenarios/takeoff_land_31m.yaml
       --alignment takeoff
@@ -76,23 +77,26 @@ Son Yapilan Is
       --metrics
         results/comparisons/public_log_31m_takeoff_aligned_metrics.json
   - Sonuc:
-    global yaw_rmse 139.826337 -> 105.236701 oldu.
-    takeoff_climb yaw_rmse 72.864666 -> 72.792593 oldu.
-    hover_cruise yaw_rmse 198.662197 -> 128.604930 oldu.
-    landing yaw_rmse 99.989504 -> 90.660283 oldu.
-  - Yorum: Wrap-around duzeltmesi yaw metriklerini daha dogru hale getirdi,
-    ancak yaw farki halen yuksek; fark sadece aci siniri gecisinden
-    kaynaklanmiyor.
+    global yaw_heading_offset_deg=-98.249214,
+    global yaw_heading_normalized_rmse=72.416465.
+    takeoff_climb yaw_heading_offset_deg=-72.706178,
+    takeoff_climb yaw_heading_normalized_rmse=4.578154.
+    hover_cruise yaw_heading_offset_deg=-131.911009,
+    hover_cruise yaw_heading_normalized_rmse=52.897664.
+    landing yaw_heading_offset_deg=-0.485843,
+    landing yaw_heading_normalized_rmse=90.741277.
+  - Yorum: Takeoff/climb yaw farkinin buyuk kismi sabit heading offset gibi
+    gorunuyor. Landing fazinda heading normalization fayda saglamiyor; asil
+    fark inis profili veya gorev yonelimi davranisindan geliyor olabilir.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Attitude/yaw farkinin kaynagini derinlestir
-    - Yaw farki circular hesaplamaya ragmen yuksek kaliyor.
-    - Real log ile sim logun heading/yaw referansi, frame farki veya gorev
-      yonelimi farkli olabilir.
-    - Sonraki adim olarak yaw mean offset alignment veya heading-normalized
-      compare secenegi degerlendir.
+1. Landing fazi farkini derinlestir
+    - Landing segmentinde altitude_rmse ve yaw_heading_normalized_rmse yuksek.
+    - Real log landing suresi simden yaklasik 5.859x uzun.
+    - Sonraki adim olarak landing segmentinde descent rate, horizontal speed
+      ve yaw-rate metrikleri eklenebilir.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

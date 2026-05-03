@@ -148,6 +148,7 @@ The comparison computes:
 - `roll_rmse`
 - `pitch_rmse`
 - `yaw_rmse` using circular angle difference
+- `yaw_heading_normalized_rmse` after removing mean heading offset
 
 It also writes phase-based metrics under `segments` for `takeoff_climb`,
 `hover_cruise`, and `landing`. Segment metrics are reported separately from

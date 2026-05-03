@@ -94,6 +94,10 @@ def build_segment_rows(metrics):
 
         for series_name in SERIES_NAMES:
             row[f"{series_name}_rmse"] = segment.get(f"{series_name}_rmse")
+        row["yaw_heading_offset_deg"] = segment.get("yaw_heading_offset_deg")
+        row["yaw_heading_normalized_rmse"] = segment.get(
+            "yaw_heading_normalized_rmse"
+        )
 
         rows.append(row)
 
@@ -107,6 +111,11 @@ def build_global_rows(metrics):
         ("roll_rmse", metrics.get("roll_rmse")),
         ("pitch_rmse", metrics.get("pitch_rmse")),
         ("yaw_rmse", metrics.get("yaw_rmse")),
+        ("yaw_heading_offset_deg", metrics.get("yaw_heading_offset_deg")),
+        (
+            "yaw_heading_normalized_rmse",
+            metrics.get("yaw_heading_normalized_rmse"),
+        ),
     ]
 
 
@@ -170,15 +179,16 @@ def render_markdown(metrics):
             "",
             "## Segment Metrics",
             "",
-            "| Segment | Sim duration s | Real duration s | Real/Sim duration | Alt RMSE | Vel RMSE | Roll RMSE | Pitch RMSE | Yaw RMSE |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| Segment | Sim duration s | Real duration s | Real/Sim duration | Alt RMSE | Vel RMSE | Roll RMSE | Pitch RMSE | Yaw RMSE | Yaw heading offset | Yaw heading-normalized RMSE |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
     )
 
     for row in segment_rows:
         lines.append(
             "| {segment} | {sim_duration} | {real_duration} | {duration_ratio} | "
-            "{altitude} | {velocity} | {roll} | {pitch} | {yaw} |".format(
+            "{altitude} | {velocity} | {roll} | {pitch} | {yaw} | "
+            "{yaw_offset} | {yaw_heading_normalized} |".format(
                 segment=row["segment"],
                 sim_duration=format_value(row["sim_duration_s"]),
                 real_duration=format_value(row["real_duration_s"]),
@@ -188,6 +198,10 @@ def render_markdown(metrics):
                 roll=format_value(row["roll_rmse"]),
                 pitch=format_value(row["pitch_rmse"]),
                 yaw=format_value(row["yaw_rmse"]),
+                yaw_offset=format_value(row["yaw_heading_offset_deg"]),
+                yaw_heading_normalized=format_value(
+                    row["yaw_heading_normalized_rmse"]
+                ),
             )
         )
 
@@ -222,6 +236,8 @@ def render_csv(metrics):
         "roll_rmse",
         "pitch_rmse",
         "yaw_rmse",
+        "yaw_heading_offset_deg",
+        "yaw_heading_normalized_rmse",
     ]
     writer = csv.DictWriter(output, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()

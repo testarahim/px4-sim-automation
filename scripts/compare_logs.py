@@ -220,6 +220,30 @@ def compute_circular_rmse_deg(left, right):
     return float(np.sqrt(np.mean(difference**2)))
 
 
+def circular_mean_deg(values):
+    if values.size == 0:
+        raise ValueError("Cannot compute circular mean for empty array")
+    radians = np.deg2rad(values)
+    return float(
+        np.rad2deg(
+            np.arctan2(
+                np.mean(np.sin(radians)),
+                np.mean(np.cos(radians)),
+            )
+        )
+    )
+
+
+def compute_heading_normalized_yaw_metrics(sim_yaw, real_yaw):
+    difference = angular_difference_deg(sim_yaw, real_yaw)
+    heading_offset = circular_mean_deg(difference)
+    residual = angular_difference_deg(difference, heading_offset)
+    return {
+        "yaw_heading_offset_deg": heading_offset,
+        "yaw_heading_normalized_rmse": float(np.sqrt(np.mean(residual**2))),
+    }
+
+
 def first_time_at_or_above(time_s, values, threshold):
     matching_indexes = np.flatnonzero(values >= threshold)
     if matching_indexes.size == 0:
@@ -486,6 +510,44 @@ def compare_segment_series(
     }
 
 
+def compare_segment_heading_normalized_yaw(
+    sim_t,
+    sim_yaw,
+    sim_segment,
+    real_t,
+    real_yaw,
+    real_segment,
+):
+    sim_segment_t, sim_segment_yaw = segment_values(sim_t, sim_yaw, sim_segment)
+    real_segment_t, real_segment_yaw = segment_values(real_t, real_yaw, real_segment)
+    if sim_segment_t is None or real_segment_t is None:
+        return {
+            "yaw_heading_offset_deg": None,
+            "yaw_heading_normalized_rmse": None,
+        }
+
+    common_t_start = max(sim_segment_t[0], real_segment_t[0])
+    common_t_end = min(sim_segment_t[-1], real_segment_t[-1])
+    if common_t_end <= common_t_start:
+        return {
+            "yaw_heading_offset_deg": None,
+            "yaw_heading_normalized_rmse": None,
+        }
+
+    mask = (sim_segment_t >= common_t_start) & (sim_segment_t <= common_t_end)
+    sim_aligned_t = sim_segment_t[mask]
+    sim_aligned_yaw = sim_segment_yaw[mask]
+    if sim_aligned_t.size < MIN_SEGMENT_SAMPLES:
+        return {
+            "yaw_heading_offset_deg": None,
+            "yaw_heading_normalized_rmse": None,
+        }
+
+    real_interp = interp1d(real_segment_t, real_segment_yaw, bounds_error=True)
+    real_aligned_yaw = real_interp(sim_aligned_t)
+    return compute_heading_normalized_yaw_metrics(sim_aligned_yaw, real_aligned_yaw)
+
+
 def compute_segment_rmse(series, segments):
     segment_metrics = {}
     for segment_name in ("takeoff_climb", "hover_cruise", "landing"):
@@ -514,6 +576,19 @@ def compute_segment_rmse(series, segments):
             )
             segment_metrics[segment_name][f"{series_name}_rmse"] = rmse
             segment_metrics[segment_name][series_name] = details
+
+        if "yaw" in series:
+            sim_t, sim_yaw, real_t, real_yaw = series["yaw"]
+            segment_metrics[segment_name].update(
+                compare_segment_heading_normalized_yaw(
+                    sim_t,
+                    sim_yaw,
+                    sim_segment,
+                    real_t,
+                    real_yaw,
+                    real_segment,
+                )
+            )
 
     return segment_metrics
 
@@ -647,6 +722,10 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         compute_circular_rmse_deg,
     )
     yaw_plot = plot_comparison(sim_t_yaw, sim_yaw_al, real_yaw_al, "yaw", plot_dir)
+    heading_normalized_yaw = compute_heading_normalized_yaw_metrics(
+        sim_yaw_al,
+        real_yaw_al,
+    )
 
     segments = {
         "sim": detect_segments(
@@ -706,6 +785,7 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         "roll_rmse": roll_rmse,
         "pitch_rmse": pitch_rmse,
         "yaw_rmse": yaw_rmse,
+        **heading_normalized_yaw,
         "segments": segment_metrics,
     }, {
         "altitude": str(altitude_plot),
@@ -766,6 +846,8 @@ def main():
     print(f"Roll RMSE: {metrics['roll_rmse']}")
     print(f"Pitch RMSE: {metrics['pitch_rmse']}")
     print(f"Yaw RMSE: {metrics['yaw_rmse']}")
+    print(f"Yaw heading offset: {metrics['yaw_heading_offset_deg']}")
+    print(f"Yaw heading-normalized RMSE: {metrics['yaw_heading_normalized_rmse']}")
     for segment_name, segment in metrics["segments"].items():
         print(f"{segment_name} altitude RMSE: {segment['altitude_rmse']}")
     print(f"Overall pass: {metrics['evaluation']['overall_pass']}")

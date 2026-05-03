@@ -27,6 +27,24 @@ class CompareLogAlignmentTests(unittest.TestCase):
 
         self.assertEqual(rmse, 2.0)
 
+    def test_heading_normalized_yaw_removes_constant_offset(self):
+        metrics = compare_logs.compute_heading_normalized_yaw_metrics(
+            np.array([90.0, 100.0, 110.0]),
+            np.array([10.0, 20.0, 30.0]),
+        )
+
+        self.assertAlmostEqual(metrics["yaw_heading_offset_deg"], 80.0)
+        self.assertAlmostEqual(metrics["yaw_heading_normalized_rmse"], 0.0)
+
+    def test_heading_normalized_yaw_handles_wraparound_offset(self):
+        metrics = compare_logs.compute_heading_normalized_yaw_metrics(
+            np.array([-170.0, -160.0]),
+            np.array([170.0, -180.0]),
+        )
+
+        self.assertAlmostEqual(metrics["yaw_heading_offset_deg"], 20.0)
+        self.assertAlmostEqual(metrics["yaw_heading_normalized_rmse"], 0.0)
+
     def test_resolve_takeoff_alignment_uses_first_threshold_crossing(self):
         args = argparse.Namespace(alignment="takeoff", takeoff_threshold_m=1.0)
 
@@ -140,6 +158,21 @@ class CompareLogAlignmentTests(unittest.TestCase):
 
         self.assertEqual(rmse, 2.0)
         self.assertTrue(details["available"])
+
+    def test_segment_heading_normalized_yaw_removes_constant_offset(self):
+        segment = {"start_s": 0.0, "end_s": 2.0, "duration_s": 2.0}
+
+        metrics = compare_logs.compare_segment_heading_normalized_yaw(
+            np.array([0.0, 1.0, 2.0]),
+            np.array([90.0, 100.0, 110.0]),
+            segment,
+            np.array([0.0, 1.0, 2.0]),
+            np.array([10.0, 20.0, 30.0]),
+            segment,
+        )
+
+        self.assertAlmostEqual(metrics["yaw_heading_offset_deg"], 80.0)
+        self.assertAlmostEqual(metrics["yaw_heading_normalized_rmse"], 0.0)
 
 
 if __name__ == "__main__":

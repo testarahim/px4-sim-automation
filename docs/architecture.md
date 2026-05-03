@@ -189,6 +189,7 @@ It computes:
 - `roll_rmse`
 - `pitch_rmse`
 - `yaw_rmse` using circular angle difference
+- `yaw_heading_normalized_rmse` after removing mean heading offset
 
 The metrics JSON also contains a `segments` object with `takeoff_climb`,
 `hover_cruise`, and `landing` entries. Segment boundaries are detected from
@@ -196,6 +197,8 @@ each log's altitude profile using the scenario target altitude, tolerance,
 hover time, and landing altitude threshold. Segment RMSE values are computed on
 normalized segment time and are intentionally not folded into the global
 `overall_pass`.
+Yaw segment entries also include `yaw_heading_offset_deg` so fixed heading
+reference differences can be separated from yaw profile-shape differences.
 
 `scripts/report_comparison.py` turns a comparison metrics JSON file into a
 Markdown report and CSV segment table. The report highlights global RMSE,

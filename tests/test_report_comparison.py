@@ -11,6 +11,8 @@ class ReportComparisonTests(unittest.TestCase):
             "roll_rmse": 1.0,
             "pitch_rmse": 3.0,
             "yaw_rmse": 5.0,
+            "yaw_heading_offset_deg": 80.0,
+            "yaw_heading_normalized_rmse": 1.5,
             "evaluation": {
                 "overall_pass": False,
                 "altitude_pass": False,
@@ -37,6 +39,8 @@ class ReportComparisonTests(unittest.TestCase):
                     "roll_rmse": 3.0,
                     "pitch_rmse": 4.0,
                     "yaw_rmse": 5.0,
+                    "yaw_heading_offset_deg": 80.0,
+                    "yaw_heading_normalized_rmse": 1.0,
                 },
                 "hover_cruise": {
                     "sim": {"duration_s": 5.0},
@@ -46,6 +50,8 @@ class ReportComparisonTests(unittest.TestCase):
                     "roll_rmse": 2.5,
                     "pitch_rmse": 3.5,
                     "yaw_rmse": 4.5,
+                    "yaw_heading_offset_deg": 70.0,
+                    "yaw_heading_normalized_rmse": 1.5,
                 },
                 "landing": {
                     "sim": {"duration_s": 8.0},
@@ -55,6 +61,8 @@ class ReportComparisonTests(unittest.TestCase):
                     "roll_rmse": 5.0,
                     "pitch_rmse": 4.0,
                     "yaw_rmse": 3.0,
+                    "yaw_heading_offset_deg": 60.0,
+                    "yaw_heading_normalized_rmse": 2.0,
                 },
             },
         }
@@ -66,12 +74,15 @@ class ReportComparisonTests(unittest.TestCase):
         self.assertEqual(rows[0]["real_to_sim_duration_ratio"], 2.0)
         self.assertEqual(rows[2]["segment"], "landing")
         self.assertEqual(rows[2]["real_to_sim_duration_ratio"], 5.0)
+        self.assertEqual(rows[2]["yaw_heading_normalized_rmse"], 2.0)
 
     def test_render_markdown_includes_findings(self):
         markdown = report_comparison.render_markdown(self.sample_metrics())
 
         self.assertIn("# Comparison Report", markdown)
+        self.assertIn("| yaw_heading_normalized_rmse | 1.500 |", markdown)
         self.assertIn("| landing | 8.000 | 40.000 | 5.000 |", markdown)
+        self.assertIn("| 3.000 | 60.000 | 2.000 |", markdown)
         self.assertIn("Largest segment altitude RMSE: landing (7.000).", markdown)
         self.assertIn("Largest real/sim duration ratio: landing (5.000x).", markdown)
 
@@ -81,6 +92,7 @@ class ReportComparisonTests(unittest.TestCase):
         self.assertIn("segment,sim_duration_s,real_duration_s", csv_text)
         self.assertIn("takeoff_climb,10.0,20.0,2.0", csv_text)
         self.assertIn("landing,8.0,40.0,5.0", csv_text)
+        self.assertIn("60.0,2.0", csv_text)
 
 
 if __name__ == "__main__":
