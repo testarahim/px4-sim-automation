@@ -1,4 +1,5 @@
 logs/
+data/real/public_logs/
 results/metrics.json
 results/compare_metrics.json
 results/runs/

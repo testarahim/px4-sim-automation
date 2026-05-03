@@ -35,38 +35,31 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- docs/architecture.md yeni akisa gore genisletildi.
-  - Scenario tabanli tek kosu akisi belgelendi.
-  - Batch akis diyagrami ve batch artifact duzeni eklendi.
-  - run artifact klasoru, latest alias dosyalari ve generated artifact
-    prensibi aciklandi.
-  - scripts/start_sitl.py, run.sh, scripts/run_batch.py,
-    scripts/compare_logs.py ve scripts/batch_compare.py rolleri aciklandi.
-  - analyze_log.py metrikleri ve pass/fail threshold kaynaklari belgelendi.
-  - Sim-vs-real compare akisi ve Flight Review public log havuzu plani
-    mimariye eklendi.
+- Flight Review public log downloader entegrasyonu icin tasarim dokumani
+  eklendi.
+  - docs/download_public_logs.md olusturuldu.
+  - Upstream kaynak, public API sekli, guvenli varsayilanlar ve filtreler
+    belgelendi.
+  - Indirme hedefi data/real/public_logs/ olarak belirlendi.
+  - data/real/public_logs/ .gitignore'a eklendi.
+  - Ilk uygulama tercihi upstream scripti kopyalamak yerine proje-native
+    wrapper yazmak olarak belirlendi.
 
 Siradaki Yapilacaklar
 ---------------------
 
-1. Flight Review public log downloader entegrasyonunu planla
-    - Incelenen kaynak:
-      https://github.com/PX4/flight_review/blob/main/app/download_logs.py
-    - Bu script PX4 Flight Review public log veritabanindan .ulg loglari
-      indirmek icin kullaniliyor; bagli arac/SITL'den log cekmez.
-    - Amacimiz: sim-vs-real karsilastirmasi icin kontrollu bir gercek ucus
-      log havuzu olusturmak.
-    - Onerilen proje akisi:
-      - data/real/public_logs/ altina public .ulg loglari indir.
-      - Indirme filtrelerini MAV type, flight mode, rating, airframe type,
-        source, git hash gibi alanlara gore sinirla.
-      - Rate limit ve buyuk indirme uyarilarini koru.
-      - Indirilen loglari scripts/compare_logs.py ve batch_compare.py ile
-        kullanilabilir hale getir.
-    - Ilk uygulama fikri:
-      scripts/download_public_logs.py veya docs/download_public_logs.md
-      olustur; dogrudan upstream scripti kopyalamadan once lisans ve
-      bagimliliklari kontrol et.
+1. scripts/download_public_logs.py ekle
+    - docs/download_public_logs.md tasarimina gore proje-native wrapper yaz.
+    - Varsayilanlar:
+      --max-num 10
+      --download-folder data/real/public_logs/
+      --delay 6
+    - Desteklenecek ilk modlar:
+      --print, --overwrite, --mav-type, --flight-modes, --rating,
+      --airframe-type, --airframe-name, --git-hash, --source, --log-id,
+      --latest-per-vehicle.
+    - Buyuk indirme uyarisini ve rate limit beklemesini koru.
+    - Uygulama sonrasi README'ye kisa kullanim ornegi ekle.
 
 2. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
