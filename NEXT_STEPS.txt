@@ -77,6 +77,73 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
+- QGroundControl ile yapilan kontrollu SITL ucusu real-first referans olarak
+  analiz edildi ve otomatik tekrar kosusu yapildi.
+  - QGC ucus logu analiz edildi:
+    logs/latest_log.ulg
+  - Referans log run.sh tarafindan ezilmemesi icin kopyalandi:
+    data/real/qgc_sitl_reference/reference_qgc_sitl.ulg
+  - Profil ve scenario uretildi:
+    results/real_profiles/qgc_sitl_profile.json
+    scenarios/generated_qgc_sitl.yaml
+  - QGC referans profil ozeti:
+    target_altitude_m=13.954539, max_altitude_m=13.998151,
+    takeoff_time_s=32.684, target_reached_time_s=41.380,
+    landing_time_s=103.108, airborne_duration_s=70.424,
+    cruise_displacement north=139.685730, east=-27.503899,
+    distance=142.367720, heading_deg=348.861042,
+    cruise_horizontal_speed_mean_m_s=2.317316.
+  - vehicle_status uzerinden faz ozeti:
+    AUTO_TAKEOFF t=26.868s, AUTO_LOITER t=42.504s,
+    AUTO_LAND t=88.428s, disarm t=106.836s.
+    Takeoff climb duration=8.696s,
+    cruise_before_land_command duration=47.048s, distance=142.348m,
+    horizontal_speed_mean=3.033m/s,
+    landing_after_land_command duration=14.680s,
+    descent_rate_mean=0.929m/s.
+  - Generated scenario SITL'de calistirildi:
+    RUN_ID=qgc_sitl_generated_20260504_01
+    bash run.sh scenarios/generated_qgc_sitl.yaml
+  - Run artifact klasoru:
+    results/runs/qgc_sitl_generated_20260504_01/
+  - Generated QGC scenario SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=14.0, max_altitude_m=14.242350,
+    final_altitude_m=-0.014174, max_altitude_error_m=0.242350,
+    hover_altitude_rmse_m=0.668318, landing_duration_s=76.472,
+    duration_s=102.020.
+  - Sim log QGC referans loguyla takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py
+      --config scenarios/generated_qgc_sitl.yaml
+      --alignment takeoff
+      --sim results/runs/qgc_sitl_generated_20260504_01/px4.ulg
+      --real data/real/qgc_sitl_reference/reference_qgc_sitl.ulg
+      --metrics
+        results/comparisons/qgc_sitl_generated_takeoff_aligned_metrics.json
+      --plot-dir
+        results/plots/comparisons/qgc_sitl_generated_takeoff_aligned
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=5.007887, velocity_rmse=1.897760,
+    roll_rmse=2.149437, pitch_rmse=2.990231,
+    yaw_rmse=30.803272,
+    yaw_heading_normalized_rmse=30.940909.
+  - Segment bazinda altitude cok iyi eslesti:
+    takeoff_climb altitude_rmse=0.052326,
+    hover_cruise altitude_rmse=0.144111,
+    landing altitude_rmse=0.026862.
+  - Ana farklar hover_cruise velocity/yaw tarafinda:
+    hover_cruise sim duration=66.040s, real duration=47.984s,
+    sim horizontal_speed_mean_mps=2.177,
+    real horizontal_speed_mean_mps=2.975,
+    sim yaw_rate_abs_mean_deg_s=2.481,
+    real yaw_rate_abs_mean_deg_s=3.226.
+  - Yorum: Kontrollu QGC SITL logu public loglara gore cok daha iyi referans.
+    Path/displacement ve altitude fazlari iyi eslesiyor. Bir sonraki teknik
+    adim compare/analyze tarafinda motion_profile fazini hover_cruise'dan ayri
+    segment olarak olcmek; ardindan profile_real_log.py icinde land komutu
+    baslangicini vehicle_status/nav_state ile yakalayip cruise sure/hizini
+    daha dogru scenario'ya aktarmak.
+
 - Mission hareket modeli real profilden gelen displacement ihtiyacina gore
   genisletildi.
   - scripts/run_mission.py artik opsiyonel mission.motion_profile alanini

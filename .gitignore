@@ -1,6 +1,8 @@
 logs/
 data/real/public_logs/
+data/real/qgc_sitl_reference/
 results/metrics.json
+results/*.json
 results/compare_metrics.json
 results/runs/
 results/batches/
