@@ -464,6 +464,47 @@ def detect_segments(time_s, altitude_m, config, alignment, side):
     }
 
 
+def motion_profile_legs(config):
+    motion_profile = config.get("mission", {}).get("motion_profile", {})
+    if not isinstance(motion_profile, dict):
+        return []
+    legs = motion_profile.get("legs")
+    if isinstance(legs, list):
+        return legs
+    if motion_profile.get("mode") == "offboard_ned":
+        return [motion_profile]
+    return []
+
+
+def detect_motion_leg_segments(segments, config):
+    hover_cruise = segments.get("hover_cruise")
+    if hover_cruise is None:
+        return []
+
+    leg_segments = []
+    current_start = hover_cruise["start_s"] + float(
+        config.get("mission", {}).get("hover_time", 0.0)
+    )
+    hover_cruise_end = hover_cruise["end_s"]
+    for index, leg in enumerate(motion_profile_legs(config), start=1):
+        duration_s = leg.get("duration_s")
+        if not isinstance(duration_s, (int, float)) or duration_s <= 0:
+            continue
+        current_end = min(current_start + float(duration_s), hover_cruise_end)
+        metadata = segment_metadata(current_start, current_end)
+        if metadata is None:
+            break
+        leg_segments.append(
+            {
+                "index": index,
+                "name": f"motion_leg_{index}",
+                "segment": metadata,
+            }
+        )
+        current_start += float(duration_s)
+    return leg_segments
+
+
 def segment_values(time_s, values, segment):
     if segment is None:
         return None, None
@@ -645,6 +686,20 @@ def add_segment_profile_metrics(segment_metrics, segments, profile_series):
             )
 
 
+def add_motion_leg_profile_metrics(leg_metrics, profile_series):
+    for leg_metric in leg_metrics:
+        for side in ("sim", "real"):
+            leg_metric[f"{side}_profile"] = compute_segment_profile_metrics(
+                profile_series[side]["altitude_t"],
+                profile_series[side]["altitude"],
+                profile_series[side]["horizontal_speed_t"],
+                profile_series[side]["horizontal_speed"],
+                profile_series[side]["yaw_rate_t"],
+                profile_series[side]["yaw_rate"],
+                leg_metric.get(side),
+            )
+
+
 def compute_segment_rmse(series, segments):
     segment_metrics = {}
     for segment_name in ("takeoff_climb", "hover_cruise", "landing"):
@@ -688,6 +743,51 @@ def compute_segment_rmse(series, segments):
             )
 
     return segment_metrics
+
+
+def compute_motion_leg_rmse(series, segments, config):
+    sim_leg_segments = detect_motion_leg_segments(segments["sim"], config)
+    real_leg_segments = detect_motion_leg_segments(segments["real"], config)
+    leg_metrics = []
+    for sim_leg, real_leg in zip(sim_leg_segments, real_leg_segments):
+        leg_metric = {
+            "index": sim_leg["index"],
+            "name": sim_leg["name"],
+            "sim": sim_leg["segment"],
+            "real": real_leg["segment"],
+            "comparison_axis": "normalized_segment_time",
+        }
+        for series_name, (sim_t, sim_values, real_t, real_values) in series.items():
+            rmse_func = (
+                compute_circular_rmse_deg
+                if series_name == "yaw"
+                else compute_rmse
+            )
+            rmse, details = compare_segment_series(
+                sim_t,
+                sim_values,
+                sim_leg["segment"],
+                real_t,
+                real_values,
+                real_leg["segment"],
+                rmse_func,
+            )
+            leg_metric[f"{series_name}_rmse"] = rmse
+            leg_metric[series_name] = details
+        if "yaw" in series:
+            sim_t, sim_yaw, real_t, real_yaw = series["yaw"]
+            leg_metric.update(
+                compare_segment_heading_normalized_yaw(
+                    sim_t,
+                    sim_yaw,
+                    sim_leg["segment"],
+                    real_t,
+                    real_yaw,
+                    real_leg["segment"],
+                )
+            )
+        leg_metrics.append(leg_metric)
+    return leg_metrics
 
 
 def evaluate(metrics, thresholds):
@@ -861,63 +961,64 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
             "real",
         ),
     }
-    segment_metrics = compute_segment_rmse(
-        {
-            "altitude": (
-                sim_t_altitude_shifted,
-                sim_altitude,
-                real_t_altitude_shifted,
-                real_altitude,
-            ),
-            "velocity": (
-                sim_t_velocity_shifted,
-                sim_speed,
-                real_t_velocity_shifted,
-                real_speed,
-            ),
-            "roll": (
-                sim_t_attitude_shifted,
-                sim_roll,
-                real_t_attitude_shifted,
-                real_roll,
-            ),
-            "pitch": (
-                sim_t_attitude_shifted,
-                sim_pitch,
-                real_t_attitude_shifted,
-                real_pitch,
-            ),
-            "yaw": (
-                sim_t_attitude_shifted,
-                sim_yaw,
-                real_t_attitude_shifted,
-                real_yaw,
-            ),
+    comparison_series = {
+        "altitude": (
+            sim_t_altitude_shifted,
+            sim_altitude,
+            real_t_altitude_shifted,
+            real_altitude,
+        ),
+        "velocity": (
+            sim_t_velocity_shifted,
+            sim_speed,
+            real_t_velocity_shifted,
+            real_speed,
+        ),
+        "roll": (
+            sim_t_attitude_shifted,
+            sim_roll,
+            real_t_attitude_shifted,
+            real_roll,
+        ),
+        "pitch": (
+            sim_t_attitude_shifted,
+            sim_pitch,
+            real_t_attitude_shifted,
+            real_pitch,
+        ),
+        "yaw": (
+            sim_t_attitude_shifted,
+            sim_yaw,
+            real_t_attitude_shifted,
+            real_yaw,
+        ),
+    }
+    profile_series = {
+        "sim": {
+            "altitude_t": sim_t_altitude_shifted,
+            "altitude": sim_altitude,
+            "horizontal_speed_t": sim_t_horizontal_speed_shifted,
+            "horizontal_speed": sim_horizontal_speed,
+            "yaw_rate_t": sim_t_yaw_rate,
+            "yaw_rate": sim_yaw_rate,
         },
-        segments,
-    )
-    add_segment_profile_metrics(
-        segment_metrics,
-        segments,
-        {
-            "sim": {
-                "altitude_t": sim_t_altitude_shifted,
-                "altitude": sim_altitude,
-                "horizontal_speed_t": sim_t_horizontal_speed_shifted,
-                "horizontal_speed": sim_horizontal_speed,
-                "yaw_rate_t": sim_t_yaw_rate,
-                "yaw_rate": sim_yaw_rate,
-            },
-            "real": {
-                "altitude_t": real_t_altitude_shifted,
-                "altitude": real_altitude,
-                "horizontal_speed_t": real_t_horizontal_speed_shifted,
-                "horizontal_speed": real_horizontal_speed,
-                "yaw_rate_t": real_t_yaw_rate,
-                "yaw_rate": real_yaw_rate,
-            },
+        "real": {
+            "altitude_t": real_t_altitude_shifted,
+            "altitude": real_altitude,
+            "horizontal_speed_t": real_t_horizontal_speed_shifted,
+            "horizontal_speed": real_horizontal_speed,
+            "yaw_rate_t": real_t_yaw_rate,
+            "yaw_rate": real_yaw_rate,
         },
+    }
+    segment_metrics = compute_segment_rmse(comparison_series, segments)
+    motion_leg_metrics = compute_motion_leg_rmse(
+        comparison_series,
+        segments,
+        config,
     )
+    add_segment_profile_metrics(segment_metrics, segments, profile_series)
+    add_motion_leg_profile_metrics(motion_leg_metrics, profile_series)
 
     return {
         "altitude_rmse": altitude_rmse,
@@ -927,6 +1028,7 @@ def compare_series(sim_ulog, real_ulog, plot_dir, alignment, config):
         "yaw_rmse": yaw_rmse,
         **heading_normalized_yaw,
         "segments": segment_metrics,
+        "motion_legs": motion_leg_metrics,
     }, {
         "altitude": str(altitude_plot),
         "velocity": str(velocity_plot),
@@ -990,6 +1092,8 @@ def main():
     print(f"Yaw heading-normalized RMSE: {metrics['yaw_heading_normalized_rmse']}")
     for segment_name, segment in metrics["segments"].items():
         print(f"{segment_name} altitude RMSE: {segment['altitude_rmse']}")
+    for leg in metrics.get("motion_legs", []):
+        print(f"{leg['name']} yaw RMSE: {leg['yaw_rmse']}")
     print(f"Overall pass: {metrics['evaluation']['overall_pass']}")
     print(f"Saved metrics: {args.metrics}")
     print(f"Saved plots: {args.plot_dir}")

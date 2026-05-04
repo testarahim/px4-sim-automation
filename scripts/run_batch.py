@@ -65,6 +65,38 @@ def timestamp_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def git_commit_hash():
+    try:
+        process = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=PROJECT_DIR,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if process.returncode != 0:
+        return None
+    return process.stdout.strip() or None
+
+
+def system_info(scenarios):
+    return {
+        "px4_dir": os.environ.get("PX4_DIR", "~/PX4-Autopilot"),
+        "px4_sitl_target": os.environ.get("PX4_SITL_TARGET", "gz_x500"),
+        "git_commit": git_commit_hash(),
+        "scenarios": [
+            {
+                "name": scenario.name,
+                "path": str(scenario),
+            }
+            for scenario in scenarios
+        ],
+    }
+
+
 def resolve_scenarios(args):
     scenario_dir = (
         args.scenario_dir
@@ -266,6 +298,7 @@ def main():
         "scenario_count": len(rows),
         "passed": sum(1 for row in rows if row["status"] == "passed"),
         "failed": sum(1 for row in rows if row["status"] != "passed"),
+        "system": system_info(scenarios),
         "results": rows,
     }
     summary["overall_pass"] = summary["failed"] == 0 and summary["scenario_count"] > 0

@@ -1,4 +1,5 @@
 import argparse
+import csv
 import json
 import math
 from pathlib import Path
@@ -36,6 +37,12 @@ def parse_args():
         type=Path,
         default=None,
         help="Optional scenario YAML output path generated from the profile.",
+    )
+    parser.add_argument(
+        "--output-timeseries",
+        type=Path,
+        default=None,
+        help="Optional velocity and attitude CSV output path.",
     )
     parser.add_argument(
         "--ground-altitude-m",
@@ -347,6 +354,12 @@ def build_motion_legs_from_events(
             float(time_s[start_index]),
             float(time_s[end_index]),
         )
+        yaw_setpoints = leg_yaw_setpoints(
+            attitude_time_s,
+            yaw_unwrapped_deg,
+            float(time_s[start_index]),
+            float(time_s[end_index]),
+        )
         leg = {
             "index": leg_index,
             "start_time_s": float(time_s[start_index]),
@@ -357,6 +370,7 @@ def build_motion_legs_from_events(
             or finite_or_none(target_altitude_m),
             "displacement": displacement,
             "attitude": attitude,
+            "yaw_setpoints": yaw_setpoints,
         }
         legs.append(leg)
     return legs
@@ -366,6 +380,45 @@ def time_mask(time_s, start_time_s, end_time_s):
     if time_s is None or start_time_s is None or end_time_s is None:
         return None
     return (time_s >= start_time_s) & (time_s <= end_time_s)
+
+
+def leg_yaw_setpoints(
+    attitude_time_s,
+    yaw_unwrapped_deg,
+    start_time_s,
+    end_time_s,
+    interval_s=DEFAULT_SETPOINT_INTERVAL_S,
+):
+    if yaw_unwrapped_deg is None:
+        return []
+    mask = time_mask(attitude_time_s, start_time_s, end_time_s)
+    if mask is None or not np.any(mask):
+        return []
+
+    leg_time = attitude_time_s[mask]
+    leg_yaw = yaw_unwrapped_deg[mask]
+    duration_s = float(end_time_s - start_time_s)
+    if leg_time.size == 0 or duration_s <= 0:
+        return []
+
+    sample_times = np.arange(0.0, duration_s, interval_s)
+    if sample_times.size == 0 or sample_times[-1] < duration_s:
+        sample_times = np.append(sample_times, duration_s)
+    yaw_samples = np.interp(start_time_s + sample_times, leg_time, leg_yaw)
+    setpoints = []
+    previous_time_s = None
+    for time_value, yaw_value in zip(sample_times, yaw_samples):
+        rounded_time_s = round(float(time_value), 3)
+        if previous_time_s is not None and rounded_time_s <= previous_time_s:
+            continue
+        previous_time_s = rounded_time_s
+        setpoints.append(
+            {
+                "time_s": rounded_time_s,
+                "yaw_deg": round(float(yaw_value), 3),
+            }
+        )
+    return setpoints
 
 
 def leg_attitude_summary(
@@ -677,6 +730,9 @@ def build_scenario_from_profile(
                 scenario_leg["yaw_end_deg"] = round(float(yaw_end), 3)
             if yaw_rate is not None:
                 scenario_leg["yaw_rate_deg_s"] = round(float(yaw_rate), 3)
+            yaw_setpoints = leg.get("yaw_setpoints", [])
+            if yaw_setpoints:
+                scenario_leg["yaw_setpoints"] = yaw_setpoints
             if leg_speed is not None and np.isfinite(leg_speed) and leg_speed > 0:
                 scenario_leg["horizontal_speed_m_s"] = round(float(leg_speed), 3)
             scenario_legs.append(scenario_leg)
@@ -749,6 +805,78 @@ def write_yaml(path, data):
         yaml.safe_dump(data, output_file, sort_keys=False)
 
 
+def build_velocity_attitude_timeseries(
+    time_s,
+    vx_m_s,
+    vy_m_s,
+    vz_m_s,
+    base_timestamp_us=None,
+    x_m=None,
+    y_m=None,
+    altitude_m=None,
+    attitude_time_s=None,
+    roll_deg=None,
+    pitch_deg=None,
+    yaw_deg=None,
+    yaw_unwrapped_deg=None,
+    yaw_rate_deg_s=None,
+):
+    horizontal_speed = np.sqrt(vx_m_s**2 + vy_m_s**2)
+    has_attitude = attitude_time_s is not None and len(attitude_time_s) > 0
+    rows = []
+    for index, time_value in enumerate(time_s):
+        row = {
+            "time_s": float(time_value),
+            "vx_m_s": float(vx_m_s[index]),
+            "vy_m_s": float(vy_m_s[index]),
+            "vz_m_s": float(vz_m_s[index]),
+            "horizontal_speed_m_s": float(horizontal_speed[index]),
+            "roll_deg": None,
+            "pitch_deg": None,
+            "yaw_deg": None,
+            "yaw_unwrapped_deg": None,
+            "yaw_rate_deg_s": None,
+        }
+        if has_attitude:
+            row["roll_deg"] = finite_or_none(
+                np.interp(time_value, attitude_time_s, roll_deg)
+            )
+            row["pitch_deg"] = finite_or_none(
+                np.interp(time_value, attitude_time_s, pitch_deg)
+            )
+            row["yaw_deg"] = finite_or_none(
+                np.interp(time_value, attitude_time_s, yaw_deg)
+            )
+            row["yaw_unwrapped_deg"] = finite_or_none(
+                np.interp(time_value, attitude_time_s, yaw_unwrapped_deg)
+            )
+            row["yaw_rate_deg_s"] = finite_or_none(
+                np.interp(time_value, attitude_time_s, yaw_rate_deg_s)
+            )
+        rows.append(row)
+    return rows
+
+
+def write_timeseries_csv(path, rows):
+    fieldnames = [
+        "time_s",
+        "vx_m_s",
+        "vy_m_s",
+        "vz_m_s",
+        "horizontal_speed_m_s",
+        "roll_deg",
+        "pitch_deg",
+        "yaw_deg",
+        "yaw_unwrapped_deg",
+        "yaw_rate_deg_s",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as output_file:
+        writer = csv.DictWriter(output_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def main():
     args = parse_args()
     if args.ground_altitude_m < 0:
@@ -794,6 +922,15 @@ def main():
         )
         write_yaml(output_scenario, scenario)
         print(f"Saved generated scenario: {output_scenario}")
+
+    if args.output_timeseries:
+        output_timeseries = resolve_path(args.output_timeseries)
+        rows = build_velocity_attitude_timeseries(
+            **vehicle_attitude,
+            **local_position,
+        )
+        write_timeseries_csv(output_timeseries, rows)
+        print(f"Saved velocity/attitude time series: {output_timeseries}")
 
 
 if __name__ == "__main__":

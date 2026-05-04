@@ -158,6 +158,77 @@ class ProfileRealLogTests(unittest.TestCase):
             profile["mission_legs"][0]["attitude"]["yaw_rate_mean_deg_s"],
             10.0,
         )
+        self.assertEqual(
+            profile["mission_legs"][0]["yaw_setpoints"][0],
+            {"time_s": 0.0, "yaw_deg": 0.0},
+        )
+        self.assertEqual(
+            profile["mission_legs"][0]["yaw_setpoints"][-1],
+            {"time_s": 2.0, "yaw_deg": 20.0},
+        )
+
+    def test_build_scenario_from_profile_adds_yaw_setpoints(self):
+        scenario = profile_real_log.build_scenario_from_profile(
+            {
+                "target_altitude_m": 10.0,
+                "cruise_duration_s": 2.0,
+                "cruise_horizontal_speed_mean_m_s": 1.0,
+                "cruise_displacement": {
+                    "north_m": 1.0,
+                    "east_m": 0.0,
+                    "distance_m": 1.0,
+                    "heading_deg": 0.0,
+                },
+                "mission_legs": [
+                    {
+                        "duration_s": 2.0,
+                        "horizontal_speed_mean_m_s": 1.0,
+                        "target_altitude_m": 10.0,
+                        "displacement": {
+                            "north_m": 2.0,
+                            "east_m": 0.0,
+                            "distance_m": 2.0,
+                        },
+                        "attitude": {
+                            "yaw_start_deg": 10.0,
+                            "yaw_end_deg": 30.0,
+                            "yaw_rate_mean_deg_s": 10.0,
+                        },
+                        "yaw_setpoints": [
+                            {"time_s": 0.0, "yaw_deg": 10.0},
+                            {"time_s": 2.0, "yaw_deg": 30.0},
+                        ],
+                    }
+                ],
+            }
+        )
+
+        leg = scenario["mission"]["motion_profile"]["legs"][0]
+        self.assertEqual(
+            leg["yaw_setpoints"],
+            [
+                {"time_s": 0.0, "yaw_deg": 10.0},
+                {"time_s": 2.0, "yaw_deg": 30.0},
+            ],
+        )
+
+    def test_build_velocity_attitude_timeseries_interpolates_attitude(self):
+        rows = profile_real_log.build_velocity_attitude_timeseries(
+            time_s=np.array([0.0, 1.0]),
+            vx_m_s=np.array([3.0, 4.0]),
+            vy_m_s=np.array([4.0, 3.0]),
+            vz_m_s=np.array([0.0, 1.0]),
+            attitude_time_s=np.array([0.0, 2.0]),
+            roll_deg=np.array([0.0, 20.0]),
+            pitch_deg=np.array([0.0, -10.0]),
+            yaw_deg=np.array([10.0, 30.0]),
+            yaw_unwrapped_deg=np.array([10.0, 30.0]),
+            yaw_rate_deg_s=np.array([5.0, 15.0]),
+        )
+
+        self.assertEqual(rows[0]["horizontal_speed_m_s"], 5.0)
+        self.assertEqual(rows[1]["roll_deg"], 10.0)
+        self.assertEqual(rows[1]["yaw_rate_deg_s"], 10.0)
 
     def test_build_scenario_without_motion_uses_hover_only(self):
         profile = {

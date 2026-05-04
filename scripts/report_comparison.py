@@ -124,6 +124,44 @@ def build_segment_rows(metrics):
 
         rows.append(row)
 
+    for leg in metrics.get("motion_legs", []):
+        sim_duration_s = segment_duration(leg, "sim")
+        real_duration_s = segment_duration(leg, "real")
+        row = {
+            "segment": leg.get("name", f"motion_leg_{leg.get('index', len(rows) + 1)}"),
+            "sim_duration_s": sim_duration_s,
+            "real_duration_s": real_duration_s,
+            "real_to_sim_duration_ratio": duration_ratio(
+                real_duration_s,
+                sim_duration_s,
+            ),
+        }
+
+        for series_name in SERIES_NAMES:
+            row[f"{series_name}_rmse"] = leg.get(f"{series_name}_rmse")
+        row["yaw_heading_offset_deg"] = leg.get("yaw_heading_offset_deg")
+        row["yaw_heading_normalized_rmse"] = leg.get(
+            "yaw_heading_normalized_rmse"
+        )
+        for side in ("sim", "real"):
+            row[f"{side}_descent_rate_mean_mps"] = profile_value(
+                leg,
+                side,
+                "descent_rate_mean_mps",
+            )
+            row[f"{side}_horizontal_speed_mean_mps"] = profile_value(
+                leg,
+                side,
+                "horizontal_speed_mean_mps",
+            )
+            row[f"{side}_yaw_rate_abs_mean_deg_s"] = profile_value(
+                leg,
+                side,
+                "yaw_rate_abs_mean_deg_s",
+            )
+
+        rows.append(row)
+
     return rows
 
 

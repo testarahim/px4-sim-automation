@@ -201,6 +201,79 @@ class CompareLogAlignmentTests(unittest.TestCase):
         self.assertEqual(metrics["horizontal_speed_mean_mps"], 2.0)
         self.assertEqual(metrics["yaw_rate_abs_mean_deg_s"], 15.0)
 
+    def test_detect_motion_leg_segments_uses_configured_leg_durations(self):
+        segments = {
+            "hover_cruise": {
+                "start_s": 10.0,
+                "end_s": 20.0,
+                "duration_s": 10.0,
+            }
+        }
+        config = {
+            "mission": {
+                "hover_time": 1.0,
+                "motion_profile": {
+                    "mode": "offboard_ned",
+                    "legs": [
+                        {"duration_s": 2.0},
+                        {"duration_s": 3.0},
+                    ],
+                },
+            }
+        }
+
+        leg_segments = compare_logs.detect_motion_leg_segments(segments, config)
+
+        self.assertEqual(leg_segments[0]["name"], "motion_leg_1")
+        self.assertEqual(leg_segments[0]["segment"]["start_s"], 11.0)
+        self.assertEqual(leg_segments[0]["segment"]["end_s"], 13.0)
+        self.assertEqual(leg_segments[1]["segment"]["start_s"], 13.0)
+        self.assertEqual(leg_segments[1]["segment"]["end_s"], 16.0)
+
+    def test_compute_motion_leg_rmse_reports_each_leg(self):
+        segments = {
+            "sim": {
+                "hover_cruise": {
+                    "start_s": 0.0,
+                    "end_s": 4.0,
+                    "duration_s": 4.0,
+                }
+            },
+            "real": {
+                "hover_cruise": {
+                    "start_s": 10.0,
+                    "end_s": 14.0,
+                    "duration_s": 4.0,
+                }
+            },
+        }
+        config = {
+            "mission": {
+                "hover_time": 0.0,
+                "motion_profile": {
+                    "mode": "offboard_ned",
+                    "legs": [{"duration_s": 2.0}],
+                },
+            }
+        }
+
+        metrics = compare_logs.compute_motion_leg_rmse(
+            {
+                "altitude": (
+                    np.array([0.0, 1.0, 2.0]),
+                    np.array([1.0, 2.0, 3.0]),
+                    np.array([10.0, 11.0, 12.0]),
+                    np.array([1.0, 2.0, 3.0]),
+                )
+            },
+            segments,
+            config,
+        )
+
+        self.assertEqual(metrics[0]["name"], "motion_leg_1")
+        self.assertEqual(metrics[0]["altitude_rmse"], 0.0)
+        self.assertTrue(metrics[0]["altitude"]["available"])
+
 
 if __name__ == "__main__":
     unittest.main()

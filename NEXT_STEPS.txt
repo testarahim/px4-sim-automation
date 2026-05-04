@@ -83,56 +83,48 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
-- QGC mission leg'lerine real logdan yaw hedefleri eklendi.
-  - Kullanici platform yaw'unun real logdan farkli oldugunu belirtti.
-  - scripts/profile_real_log.py artik her mission leg icin attitude ozeti
-    cikariyor:
-    roll_mean_deg, roll_abs_mean_deg, pitch_mean_deg, pitch_abs_mean_deg,
-    yaw_start_deg, yaw_end_deg, yaw_delta_deg, yaw_rate_mean_deg_s ve
-    yaw_rate_abs_mean_deg_s.
-  - scenarios/generated_qgc_sitl_02.yaml icindeki her motion leg artik
-    yaw_start_deg/yaw_end_deg ve yaw_rate_deg_s iceriyor.
-  - scripts/run_mission.py motion_profile leg'lerinde yaw_start_deg ve
-    yaw_end_deg varsa leg suresi boyunca mutlak yaw hedefini interpolate
-    ediyor.
-  - Real log icin her t anindaki velocity + attitude serisi artifact olarak
-    cikarildi:
-    results/real_profiles/qgc_sitl_02_velocity_attitude_timeseries.csv
-    Alanlar: time_s, vx_m_s, vy_m_s, vz_m_s, horizontal_speed_m_s,
+- QGC 02 mission leg'leri icin daha sik ornekli yaw setpoint replay eklendi.
+  - scripts/profile_real_log.py artik mission leg icinde 0.2 s aralikli
+    yaw_setpoints listesi uretiyor ve scenario YAML'a yaziyor.
+  - scripts/run_mission.py mission.motion_profile leg'lerinde yaw_setpoints
+    varsa leg suresi boyunca zaman-indexli yaw hedefini interpolate ederek
+    replay ediyor. yaw_setpoints yoksa onceki yaw_start_deg/yaw_end_deg
+    fallback davranisi korunuyor.
+  - scripts/profile_real_log.py --output-timeseries argumani eklendi.
+    CSV alanlari: time_s, vx_m_s, vy_m_s, vz_m_s, horizontal_speed_m_s,
     roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg, yaw_rate_deg_s.
-  - Yaw hedefli scenario SITL'de calistirildi:
-    RUN_ID=qgc_sitl_02_yaw_generated_20260504_01
+  - scripts/compare_logs.py artik motion_profile.legs icindeki her leg icin
+    ayri RMSE ve profil ozeti uretiyor. scripts/report_comparison.py bu
+    motion_leg satirlarini Markdown/CSV raporuna da ekliyor.
+  - scripts/run_batch.py batch summary.json icine system bilgisi ekliyor:
+    PX4_DIR, PX4_SITL_TARGET, scenario listesi ve git commit hash'i.
+  - scenarios/generated_qgc_sitl_02.yaml QGC 02 referans logundan yeniden
+    uretildi ve her leg yaw_setpoints iceriyor.
+  - Yeni yaw zaman serili scenario SITL'de calistirildi:
+    RUN_ID=20260504_172515
     bash run.sh scenarios/generated_qgc_sitl_02.yaml
   - Run artifact klasoru:
-    results/runs/qgc_sitl_02_yaw_generated_20260504_01/
+    results/runs/20260504_172515/
   - SITL kosusu overall_pass=true.
     Metrikler:
-    target_altitude_m=20.0, max_altitude_m=20.170649,
-    final_altitude_m=0.002888, max_altitude_error_m=0.170649,
-    hover_altitude_rmse_m=0.945556, landing_duration_s=48.200,
+    target_altitude_m=20.0, max_altitude_m=20.241011,
+    final_altitude_m=0.024211, max_altitude_error_m=0.241011,
+    hover_altitude_rmse_m=0.950634, landing_duration_s=48.336,
     duration_s=73.980.
   - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
-    results/comparisons/qgc_sitl_02_yaw_takeoff_aligned_metrics.json
+    results/comparisons/qgc_sitl_02_yaw_timeseries_takeoff_aligned_metrics.json
   - Compare sonucu overall_pass=false:
-    altitude_rmse=0.499691, velocity_rmse=1.181019,
-    roll_rmse=3.389728, pitch_rmse=6.978302,
-    yaw_rmse=29.397603,
-    yaw_heading_normalized_rmse=28.792095.
-  - Onceki cok-bacakli ama yaw hedefsiz kosuya gore:
-    yaw_rmse 83.789250 -> 29.397603,
-    yaw_heading_normalized_rmse 59.543933 -> 28.792095,
-    roll_rmse 3.877123 -> 3.389728.
-  - Hover/cruise segmenti:
-    sim horizontal_speed_mean_mps=2.763,
-    real horizontal_speed_mean_mps=2.827,
-    sim yaw_rate_abs_mean_deg_s=11.191,
-    real yaw_rate_abs_mean_deg_s=14.641.
-  - Yorum: Leg bazli yaw hedefleri yaw farkini buyuk oranda azaltti.
-    Pitch RMSE halen yuksek; PX4 multicopter'de roll/pitch dogrudan mission
-    komutu olarak verilmemeli. Birebire daha da yaklasmak icin siradaki adim
-    motion leg icinde yaw'u sadece baslangic/bitis lineer interpolasyonu ile
-    degil, daha sik orneklenmis yaw setpoint serisiyle replay etmek veya
-    MAVSDK Mission waypoint hiz/yaw semasini dogrudan kullanmak olabilir.
+    altitude_rmse=0.551186, velocity_rmse=1.589745,
+    roll_rmse=2.953470, pitch_rmse=6.873200,
+    yaw_rmse=30.254980,
+    yaw_heading_normalized_rmse=28.876858.
+  - Motion leg yaw RMSE:
+    leg1=23.411142, leg2=21.882055, leg3=75.924993, leg4=31.433520.
+  - Yorum: Zaman serili yaw replay altyapisi tamamlandi ancak bu kosuda global
+    yaw RMSE onceki leg-bazli lineer yaw kosusundan daha iyi degil. Yeni leg
+    raporu sorunun ozellikle 3. leg'de buyudugunu gosteriyor; siradaki teknik
+    odak yaw setpoint'i pozisyon/hiz profiliyle birlikte faz hizalamak veya
+    MAVSDK Mission waypoint hiz/yaw semasini denemek olmali.
 
 Siradaki Yapilacaklar
 ---------------------
@@ -148,40 +140,38 @@ Kontrol Sonucu
 - Heading/yaw bilgisinden motion_profile yaw hedefi doldurma: Yapildi.
   profile_real_log.py leg bazli yaw_start_deg/yaw_end_deg/yaw_rate_deg_s
   uretiyor; run_mission.py bu yaw hedeflerini replay ediyor.
+- Motion leg icinde yaw'u daha sik orneklenmis zaman serisiyle replay etme:
+  Yapildi. yaw_setpoints schema'si eklendi, QGC 02 scenario yeniden uretildi
+  ve SITL/compare kosusu alindi.
+- Motion leg segmentlerini compare_logs.py icinde ayri raporlama: Yapildi.
+  metrics JSON ve report_comparison Markdown/CSV ciktilari motion_leg_N
+  satirlarini iceriyor.
+- Velocity + attitude zaman serisini kalici analiz aracina donusturme:
+  Yapildi. profile_real_log.py --output-timeseries CSV ciktisi uretiyor.
+- Batch raporuna sistem bilgisi ekleme: Yapildi.
+  run_batch.py summary.json icine system blogu yaziyor.
 - Final landing yatay/yaw davranisini ayri optimize etme: Kismen yapildi.
   landing_profile ve PX4 land parametre deneyleri var; mevcut QGC 02 referans
   logunda landing segmenti zaten iyi eslestigi icin su an acil degil.
-- Batch raporuna sistem bilgisi ekleme: Yapilmadi.
 - Ayni filtrelerle 3-5 adaylik public log seti indirip batch compare raporu
   uretme: Yapilmadi; kontrollu referans log akisi nedeniyle dusuk oncelik.
 
-1. Motion leg icinde yaw'u daha sik orneklenmis zaman serisiyle replay et
-    - Mevcut yaw replay leg baslangic/bitis arasinda lineer interpolation
-      kullaniyor.
-    - Real logdaki yaw_unwrapped_deg/yaw_rate_deg_s serisinden leg icinde daha
-      sik ornekli yaw setpoint listesi uretilmeli.
-    - run_mission.py bu listeyi leg suresi boyunca zaman-indexli uygulamali.
-    - Hedef: yaw_rmse ve yaw_heading_normalized_rmse degerlerini daha da
-      dusurmek.
+1. Motion leg 3 icin yaw/velocity faz farkini incele
+    - Yeni motion_leg raporu leg3 yaw_rmse=75.924993 ve
+      velocity_rmse=4.199864 gosteriyor.
+    - Yaw setpoint serisi tek basina yeterli olmadi; hiz/pozisyon profili ile
+      yaw setpoint zamanlamasi birlikte hizalanmali.
+    - Hedef: leg3 kaynakli yaw_heading_normalized_rmse artisini azaltmak.
 
-2. Motion leg segmentlerini compare_logs.py icinde ayri raporla
-    - Mevcut compare takeoff_climb, hover_cruise ve landing segmentlerini
-      raporluyor.
-    - motion_profile.legs icindeki her leg icin ayri RMSE ve profil ozeti
-      uretilmeli.
-    - Hedef: hangi leg'in velocity/yaw/attitude farkini buyuttugunu net gormek.
+2. MAVSDK Mission waypoint hiz/yaw semasini dene
+    - Offboard velocity replay yerine QGC referans akisini daha dogrudan temsil
+      eden mission waypoint hiz/yaw modeli denenmeli.
+    - Hedef: PX4 ic kontrol davranisini QGC referans loguna daha yakin
+      tetiklemek.
 
-3. Velocity + attitude zaman serisini kalici analiz aracina donustur
-    - Su an qgc_sitl_02_velocity_attitude_timeseries.csv artifact olarak
-      uretildi.
-    - Bunu profile_real_log.py icinde opsiyonel CLI cikti argumani haline
-      getirmek faydali olur.
-    - Alanlar: time_s, vx_m_s, vy_m_s, vz_m_s, horizontal_speed_m_s,
-      roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg, yaw_rate_deg_s.
-
-4. Batch raporuna sistem bilgisi ekle
-    - PX4_DIR, PX4_SITL_TARGET, scenario listesi ve git commit hash'i
-      results/batches/<batch_id>/summary.json icine eklenmeli.
+3. Ayni filtrelerle 3-5 adaylik public log seti indirip batch compare raporu uret
+    - Kontrollu referans log akisi oncelikli olsa da public log regresyon seti
+      ileride genelleme icin faydali olacak.
 
 
 Onemli Teknik Notlar

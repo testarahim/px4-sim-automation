@@ -25,6 +25,71 @@ mission:
       setpoint_interval_s: 0.2
       yaw_start_deg: 94.995
       yaw_end_deg: -62.557
+      yaw_setpoints:
+      - time_s: 0.0
+        yaw_deg: 94.995
+      - time_s: 0.2
+        yaw_deg: 94.609
+      - time_s: 0.4
+        yaw_deg: 90.628
+      - time_s: 0.6
+        yaw_deg: 80.888
+      - time_s: 0.8
+        yaw_deg: 66.761
+      - time_s: 1.0
+        yaw_deg: 51.394
+      - time_s: 1.2
+        yaw_deg: 38.55
+      - time_s: 1.4
+        yaw_deg: 28.583
+      - time_s: 1.6
+        yaw_deg: 20.237
+      - time_s: 1.8
+        yaw_deg: 12.484
+      - time_s: 2.0
+        yaw_deg: 4.701
+      - time_s: 2.2
+        yaw_deg: -3.554
+      - time_s: 2.4
+        yaw_deg: -12.437
+      - time_s: 2.6
+        yaw_deg: -21.989
+      - time_s: 2.8
+        yaw_deg: -31.888
+      - time_s: 3.0
+        yaw_deg: -41.21
+      - time_s: 3.2
+        yaw_deg: -49.906
+      - time_s: 3.4
+        yaw_deg: -58.164
+      - time_s: 3.6
+        yaw_deg: -66.216
+      - time_s: 3.8
+        yaw_deg: -72.376
+      - time_s: 4.0
+        yaw_deg: -73.749
+      - time_s: 4.2
+        yaw_deg: -70.563
+      - time_s: 4.4
+        yaw_deg: -65.252
+      - time_s: 4.6
+        yaw_deg: -60.485
+      - time_s: 4.8
+        yaw_deg: -57.859
+      - time_s: 5.0
+        yaw_deg: -57.647
+      - time_s: 5.2
+        yaw_deg: -59.104
+      - time_s: 5.4
+        yaw_deg: -61.076
+      - time_s: 5.6
+        yaw_deg: -62.618
+      - time_s: 5.8
+        yaw_deg: -63.237
+      - time_s: 6.0
+        yaw_deg: -62.934
+      - time_s: 6.104
+        yaw_deg: -62.557
       horizontal_speed_m_s: 3.942
     - north_m: 29.057
       east_m: 17.761
@@ -35,6 +100,89 @@ mission:
       setpoint_interval_s: 0.2
       yaw_start_deg: -62.557
       yaw_end_deg: 36.518
+      yaw_setpoints:
+      - time_s: 0.0
+        yaw_deg: -62.557
+      - time_s: 0.2
+        yaw_deg: -61.417
+      - time_s: 0.4
+        yaw_deg: -56.772
+      - time_s: 0.6
+        yaw_deg: -46.756
+      - time_s: 0.8
+        yaw_deg: -33.406
+      - time_s: 1.0
+        yaw_deg: -20.151
+      - time_s: 1.2
+        yaw_deg: -7.346
+      - time_s: 1.4
+        yaw_deg: 4.1
+      - time_s: 1.6
+        yaw_deg: 12.981
+      - time_s: 1.8
+        yaw_deg: 20.796
+      - time_s: 2.0
+        yaw_deg: 28.739
+      - time_s: 2.2
+        yaw_deg: 37.246
+      - time_s: 2.4
+        yaw_deg: 44.88
+      - time_s: 2.6
+        yaw_deg: 47.811
+      - time_s: 2.8
+        yaw_deg: 45.51
+      - time_s: 3.0
+        yaw_deg: 40.188
+      - time_s: 3.2
+        yaw_deg: 34.709
+      - time_s: 3.4
+        yaw_deg: 31.068
+      - time_s: 3.6
+        yaw_deg: 29.858
+      - time_s: 3.8
+        yaw_deg: 30.641
+      - time_s: 4.0
+        yaw_deg: 32.282
+      - time_s: 4.2
+        yaw_deg: 33.572
+      - time_s: 4.4
+        yaw_deg: 34.123
+      - time_s: 4.6
+        yaw_deg: 34.223
+      - time_s: 4.8
+        yaw_deg: 34.249
+      - time_s: 5.0
+        yaw_deg: 34.432
+      - time_s: 5.2
+        yaw_deg: 34.71
+      - time_s: 5.4
+        yaw_deg: 34.944
+      - time_s: 5.6
+        yaw_deg: 35.093
+      - time_s: 5.8
+        yaw_deg: 35.097
+      - time_s: 6.0
+        yaw_deg: 34.918
+      - time_s: 6.2
+        yaw_deg: 34.617
+      - time_s: 6.4
+        yaw_deg: 34.31
+      - time_s: 6.6
+        yaw_deg: 34.132
+      - time_s: 6.8
+        yaw_deg: 34.204
+      - time_s: 7.0
+        yaw_deg: 34.559
+      - time_s: 7.2
+        yaw_deg: 35.116
+      - time_s: 7.4
+        yaw_deg: 35.71
+      - time_s: 7.6
+        yaw_deg: 36.192
+      - time_s: 7.8
+        yaw_deg: 36.461
+      - time_s: 7.912
+        yaw_deg: 36.518
       horizontal_speed_m_s: 4.452
     - north_m: -8.173
       east_m: 24.572
@@ -45,6 +193,79 @@ mission:
       setpoint_interval_s: 0.2
       yaw_start_deg: 36.518
       yaw_end_deg: 112.109
+      yaw_setpoints:
+      - time_s: 0.0
+        yaw_deg: 36.518
+      - time_s: 0.2
+        yaw_deg: 36.889
+      - time_s: 0.4
+        yaw_deg: 40.518
+      - time_s: 0.6
+        yaw_deg: 49.856
+      - time_s: 0.8
+        yaw_deg: 63.08
+      - time_s: 1.0
+        yaw_deg: 76.737
+      - time_s: 1.2
+        yaw_deg: 89.78
+      - time_s: 1.4
+        yaw_deg: 101.394
+      - time_s: 1.6
+        yaw_deg: 110.651
+      - time_s: 1.8
+        yaw_deg: 118.898
+      - time_s: 2.0
+        yaw_deg: 125.422
+      - time_s: 2.2
+        yaw_deg: 126.92
+      - time_s: 2.4
+        yaw_deg: 123.383
+      - time_s: 2.6
+        yaw_deg: 117.51
+      - time_s: 2.8
+        yaw_deg: 112.107
+      - time_s: 3.0
+        yaw_deg: 108.893
+      - time_s: 3.2
+        yaw_deg: 108.182
+      - time_s: 3.4
+        yaw_deg: 109.232
+      - time_s: 3.6
+        yaw_deg: 110.642
+      - time_s: 3.8
+        yaw_deg: 111.699
+      - time_s: 4.0
+        yaw_deg: 112.373
+      - time_s: 4.2
+        yaw_deg: 112.739
+      - time_s: 4.4
+        yaw_deg: 112.934
+      - time_s: 4.6
+        yaw_deg: 113.076
+      - time_s: 4.8
+        yaw_deg: 113.09
+      - time_s: 5.0
+        yaw_deg: 113.042
+      - time_s: 5.2
+        yaw_deg: 112.891
+      - time_s: 5.4
+        yaw_deg: 112.587
+      - time_s: 5.6
+        yaw_deg: 112.105
+      - time_s: 5.8
+        yaw_deg: 111.467
+      - time_s: 6.0
+        yaw_deg: 110.785
+      - time_s: 6.2
+        yaw_deg: 110.243
+      - time_s: 6.4
+        yaw_deg: 110.043
+      - time_s: 6.6
+        yaw_deg: 110.366
+      - time_s: 6.8
+        yaw_deg: 111.36
+      - time_s: 6.904
+        yaw_deg: 112.109
       horizontal_speed_m_s: 3.861
     - north_m: -0.769
       east_m: 1.756
@@ -55,6 +276,87 @@ mission:
       setpoint_interval_s: 0.2
       yaw_start_deg: 112.109
       yaw_end_deg: 113.557
+      yaw_setpoints:
+      - time_s: 0.0
+        yaw_deg: 112.109
+      - time_s: 0.2
+        yaw_deg: 113.698
+      - time_s: 0.4
+        yaw_deg: 114.856
+      - time_s: 0.6
+        yaw_deg: 115.202
+      - time_s: 0.8
+        yaw_deg: 114.854
+      - time_s: 1.0
+        yaw_deg: 114.183
+      - time_s: 1.2
+        yaw_deg: 113.549
+      - time_s: 1.4
+        yaw_deg: 113.16
+      - time_s: 1.6
+        yaw_deg: 113.056
+      - time_s: 1.8
+        yaw_deg: 113.162
+      - time_s: 2.0
+        yaw_deg: 113.359
+      - time_s: 2.2
+        yaw_deg: 113.537
+      - time_s: 2.4
+        yaw_deg: 113.64
+      - time_s: 2.6
+        yaw_deg: 113.662
+      - time_s: 2.8
+        yaw_deg: 113.635
+      - time_s: 3.0
+        yaw_deg: 113.582
+      - time_s: 3.2
+        yaw_deg: 113.536
+      - time_s: 3.4
+        yaw_deg: 113.518
+      - time_s: 3.6
+        yaw_deg: 113.525
+      - time_s: 3.8
+        yaw_deg: 113.538
+      - time_s: 4.0
+        yaw_deg: 113.553
+      - time_s: 4.2
+        yaw_deg: 113.565
+      - time_s: 4.4
+        yaw_deg: 113.566
+      - time_s: 4.6
+        yaw_deg: 113.562
+      - time_s: 4.8
+        yaw_deg: 113.561
+      - time_s: 5.0
+        yaw_deg: 113.559
+      - time_s: 5.2
+        yaw_deg: 113.566
+      - time_s: 5.4
+        yaw_deg: 113.575
+      - time_s: 5.6
+        yaw_deg: 113.577
+      - time_s: 5.8
+        yaw_deg: 113.572
+      - time_s: 6.0
+        yaw_deg: 113.557
+      - time_s: 6.2
+        yaw_deg: 113.547
+      - time_s: 6.4
+        yaw_deg: 113.54
+      - time_s: 6.6
+        yaw_deg: 113.54
+      - time_s: 6.8
+        yaw_deg: 113.542
+      - time_s: 7.0
+        yaw_deg: 113.544
+      - time_s: 7.2
+        yaw_deg: 113.548
+      - time_s: 7.4
+        yaw_deg: 113.551
+      - time_s: 7.6
+        yaw_deg: 113.558
+      - time_s: 7.8
+        yaw_deg: 113.557
       horizontal_speed_m_s: 0.222
 paths:
   px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log

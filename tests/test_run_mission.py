@@ -208,6 +208,56 @@ class RunMissionConfigTests(unittest.TestCase):
         self.assertEqual(profile["legs"][0]["yaw_end_deg"], 25.0)
         self.assertEqual(profile["legs"][1]["duration_s"], 2.0)
 
+    def test_motion_profile_loads_yaw_setpoints(self):
+        profile = run_mission.load_motion_profile(
+            {
+                "mission": {
+                    "motion_profile": {
+                        "mode": "offboard_ned",
+                        "north_m": 4.0,
+                        "duration_s": 2.0,
+                        "yaw_setpoints": [
+                            {"time_s": 0.0, "yaw_deg": 10.0},
+                            {"time_s": 2.0, "yaw_deg": 50.0},
+                        ],
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(
+            profile["yaw_setpoints"],
+            [
+                {"time_s": 0.0, "yaw_deg": 10.0},
+                {"time_s": 2.0, "yaw_deg": 50.0},
+            ],
+        )
+        self.assertEqual(
+            run_mission.interpolated_yaw_from_setpoints(
+                profile["yaw_setpoints"],
+                1.0,
+            ),
+            30.0,
+        )
+
+    def test_motion_profile_rejects_unsorted_yaw_setpoints(self):
+        with self.assertRaises(ValueError):
+            run_mission.load_motion_profile(
+                {
+                    "mission": {
+                        "motion_profile": {
+                            "mode": "offboard_ned",
+                            "north_m": 4.0,
+                            "duration_s": 2.0,
+                            "yaw_setpoints": [
+                                {"time_s": 1.0, "yaw_deg": 10.0},
+                                {"time_s": 0.5, "yaw_deg": 20.0},
+                            ],
+                        }
+                    }
+                }
+            )
+
     def test_motion_profile_rejects_missing_duration_and_speed(self):
         with self.assertRaises(ValueError):
             run_mission.load_motion_profile(

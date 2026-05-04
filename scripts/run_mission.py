@@ -267,6 +267,11 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
     if horizontal_speed_m_s is None:
         horizontal_speed_m_s = distance_m / duration_s if distance_m > 0 else 0.0
 
+    yaw_setpoints = load_yaw_setpoints(
+        profile.get("yaw_setpoints"),
+        path=f"{path}.yaw_setpoints",
+    )
+
     return {
         "mode": mode,
         "north_m": north_m,
@@ -304,6 +309,7 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
             0.0,
             path=path,
         ),
+        "yaw_setpoints": yaw_setpoints,
         "timeout": get_optional_number(
             profile,
             "timeout",
@@ -319,6 +325,62 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
             path=path,
         ),
     }
+
+
+def load_yaw_setpoints(setpoints, path):
+    if setpoints is None:
+        return []
+    if not isinstance(setpoints, list):
+        raise ValueError(f"Config value must be a list: {path}")
+
+    resolved = []
+    previous_time_s = None
+    for index, setpoint in enumerate(setpoints):
+        setpoint_path = f"{path}[{index}]"
+        if not isinstance(setpoint, dict):
+            raise ValueError(f"Config value must be a mapping: {setpoint_path}")
+        time_s = get_nullable_number(
+            setpoint,
+            "time_s",
+            None,
+            non_negative=True,
+            path=setpoint_path,
+        )
+        yaw_deg = get_nullable_number(
+            setpoint,
+            "yaw_deg",
+            None,
+            path=setpoint_path,
+        )
+        if time_s is None or yaw_deg is None:
+            raise ValueError(f"{setpoint_path} requires time_s and yaw_deg")
+        if previous_time_s is not None and time_s <= previous_time_s:
+            raise ValueError(f"{path} time_s values must be strictly increasing")
+        previous_time_s = time_s
+        resolved.append({"time_s": time_s, "yaw_deg": yaw_deg})
+    return resolved
+
+
+def interpolated_yaw_from_setpoints(yaw_setpoints, elapsed_s):
+    if not yaw_setpoints:
+        return None
+    if elapsed_s <= yaw_setpoints[0]["time_s"]:
+        return yaw_setpoints[0]["yaw_deg"]
+    if elapsed_s >= yaw_setpoints[-1]["time_s"]:
+        return yaw_setpoints[-1]["yaw_deg"]
+
+    for previous_setpoint, next_setpoint in zip(yaw_setpoints, yaw_setpoints[1:]):
+        if elapsed_s > next_setpoint["time_s"]:
+            continue
+        duration_s = next_setpoint["time_s"] - previous_setpoint["time_s"]
+        if duration_s <= 0:
+            return next_setpoint["yaw_deg"]
+        progress = (elapsed_s - previous_setpoint["time_s"]) / duration_s
+        return previous_setpoint["yaw_deg"] + (
+            next_setpoint["yaw_deg"] - previous_setpoint["yaw_deg"]
+        ) * progress
+
+    return yaw_setpoints[-1]["yaw_deg"]
 
 
 async def wait_until_connected(drone, timeout):
@@ -577,10 +639,14 @@ async def run_offboard_ned_motion_profile(drone, profile):
         elapsed = asyncio.get_running_loop().time() - start_time
         yaw_start_deg = profile.get("yaw_start_deg")
         yaw_end_deg = profile.get("yaw_end_deg")
-        if yaw_start_deg is not None and yaw_end_deg is not None:
+        yaw_deg = interpolated_yaw_from_setpoints(
+            profile.get("yaw_setpoints", []),
+            elapsed,
+        )
+        if yaw_deg is None and yaw_start_deg is not None and yaw_end_deg is not None:
             progress = min(1.0, max(0.0, elapsed / duration_s))
             yaw_deg = yaw_start_deg + (yaw_end_deg - yaw_start_deg) * progress
-        else:
+        elif yaw_deg is None:
             yaw_deg = profile["yaw_deg"]
         if yaw_deg is None:
             yaw_deg = profile["yaw_rate_deg_s"] * elapsed
