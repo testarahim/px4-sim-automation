@@ -77,6 +77,57 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
+- QGC mission leg'lerine real logdan yaw hedefleri eklendi.
+  - Kullanici platform yaw'unun real logdan farkli oldugunu belirtti.
+  - scripts/profile_real_log.py artik her mission leg icin attitude ozeti
+    cikariyor:
+    roll_mean_deg, roll_abs_mean_deg, pitch_mean_deg, pitch_abs_mean_deg,
+    yaw_start_deg, yaw_end_deg, yaw_delta_deg, yaw_rate_mean_deg_s ve
+    yaw_rate_abs_mean_deg_s.
+  - scenarios/generated_qgc_sitl_02.yaml icindeki her motion leg artik
+    yaw_start_deg/yaw_end_deg ve yaw_rate_deg_s iceriyor.
+  - scripts/run_mission.py motion_profile leg'lerinde yaw_start_deg ve
+    yaw_end_deg varsa leg suresi boyunca mutlak yaw hedefini interpolate
+    ediyor.
+  - Real log icin her t anindaki velocity + attitude serisi artifact olarak
+    cikarildi:
+    results/real_profiles/qgc_sitl_02_velocity_attitude_timeseries.csv
+    Alanlar: time_s, vx_m_s, vy_m_s, vz_m_s, horizontal_speed_m_s,
+    roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg, yaw_rate_deg_s.
+  - Yaw hedefli scenario SITL'de calistirildi:
+    RUN_ID=qgc_sitl_02_yaw_generated_20260504_01
+    bash run.sh scenarios/generated_qgc_sitl_02.yaml
+  - Run artifact klasoru:
+    results/runs/qgc_sitl_02_yaw_generated_20260504_01/
+  - SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=20.0, max_altitude_m=20.170649,
+    final_altitude_m=0.002888, max_altitude_error_m=0.170649,
+    hover_altitude_rmse_m=0.945556, landing_duration_s=48.200,
+    duration_s=73.980.
+  - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
+    results/comparisons/qgc_sitl_02_yaw_takeoff_aligned_metrics.json
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=0.499691, velocity_rmse=1.181019,
+    roll_rmse=3.389728, pitch_rmse=6.978302,
+    yaw_rmse=29.397603,
+    yaw_heading_normalized_rmse=28.792095.
+  - Onceki cok-bacakli ama yaw hedefsiz kosuya gore:
+    yaw_rmse 83.789250 -> 29.397603,
+    yaw_heading_normalized_rmse 59.543933 -> 28.792095,
+    roll_rmse 3.877123 -> 3.389728.
+  - Hover/cruise segmenti:
+    sim horizontal_speed_mean_mps=2.763,
+    real horizontal_speed_mean_mps=2.827,
+    sim yaw_rate_abs_mean_deg_s=11.191,
+    real yaw_rate_abs_mean_deg_s=14.641.
+  - Yorum: Leg bazli yaw hedefleri yaw farkini buyuk oranda azaltti.
+    Pitch RMSE halen yuksek; PX4 multicopter'de roll/pitch dogrudan mission
+    komutu olarak verilmemeli. Birebire daha da yaklasmak icin siradaki adim
+    motion leg icinde yaw'u sadece baslangic/bitis lineer interpolasyonu ile
+    degil, daha sik orneklenmis yaw setpoint serisiyle replay etmek veya
+    MAVSDK Mission waypoint hiz/yaw semasini dogrudan kullanmak olabilir.
+
 - QGC mission logundaki waypoint bacaklari korunarak scenario uretimi
   iyilestirildi.
   - Kullanici screenshot'i QGC icindeki mission'in 4 -> 5 -> 6 -> Land

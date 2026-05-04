@@ -187,6 +187,8 @@ class RunMissionConfigTests(unittest.TestCase):
                                 "north_m": 10.0,
                                 "east_m": -5.0,
                                 "duration_s": 4.0,
+                                "yaw_start_deg": 5.0,
+                                "yaw_end_deg": 25.0,
                             },
                             {
                                 "north_m": 0.0,
@@ -202,6 +204,8 @@ class RunMissionConfigTests(unittest.TestCase):
         self.assertEqual(profile["mode"], "offboard_ned")
         self.assertEqual(len(profile["legs"]), 2)
         self.assertEqual(profile["legs"][0]["north_m"], 10.0)
+        self.assertEqual(profile["legs"][0]["yaw_start_deg"], 5.0)
+        self.assertEqual(profile["legs"][0]["yaw_end_deg"], 25.0)
         self.assertEqual(profile["legs"][1]["duration_s"], 2.0)
 
     def test_motion_profile_rejects_missing_duration_and_speed(self):

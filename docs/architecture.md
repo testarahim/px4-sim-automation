@@ -193,17 +193,23 @@ mission:
         east_m: -21.2
         target_altitude_m: 19.8
         duration_s: 6.1
+        yaw_start_deg: 95.0
+        yaw_end_deg: -62.6
       - north_m: 29.1
         east_m: 17.8
         target_altitude_m: 20.0
         duration_s: 7.9
+        yaw_start_deg: -62.6
+        yaw_end_deg: 36.5
 ```
 
 `duration_s` or `horizontal_speed_m_s` can be provided; when only horizontal
 speed is present, the mission runner derives duration from the north/east
 displacement. `target_altitude_m` is optional. When it is set, the runner adds
 a vertical velocity component so the motion profile trends toward that relative
-altitude over the profile duration.
+altitude over the profile duration. `yaw_start_deg` and `yaw_end_deg` replay
+leg-local yaw motion from a real log; when both are present, the runner
+interpolates the absolute yaw target across the leg.
 
 ## Landing Profiles
 

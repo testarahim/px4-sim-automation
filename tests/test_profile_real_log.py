@@ -135,6 +135,12 @@ class ProfileRealLogTests(unittest.TestCase):
             mission_seq_current=np.array([3, 4, 5]),
             mission_seq_reached=np.array([2, 3, 4]),
             mission_finished=np.array([0, 0, 1]),
+            attitude_time_s=np.array([4.0, 5.0, 6.0, 7.0, 8.0]),
+            roll_deg=np.array([0.0, 1.0, 2.0, 1.0, 0.0]),
+            pitch_deg=np.array([0.0, -1.0, -2.0, -1.0, 0.0]),
+            yaw_deg=np.array([0.0, 10.0, 20.0, 40.0, 60.0]),
+            yaw_unwrapped_deg=np.array([0.0, 10.0, 20.0, 40.0, 60.0]),
+            yaw_rate_deg_s=np.array([10.0, 10.0, 15.0, 20.0, 20.0]),
             ground_altitude_m=0.3,
             takeoff_threshold_m=1.0,
         )
@@ -147,6 +153,10 @@ class ProfileRealLogTests(unittest.TestCase):
         self.assertAlmostEqual(
             profile["mission_legs"][1]["displacement"]["north_m"],
             3.0,
+        )
+        self.assertAlmostEqual(
+            profile["mission_legs"][0]["attitude"]["yaw_rate_mean_deg_s"],
+            10.0,
         )
 
     def test_build_scenario_without_motion_uses_hover_only(self):

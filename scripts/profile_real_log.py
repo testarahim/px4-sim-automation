@@ -303,6 +303,12 @@ def build_motion_legs_from_events(
     mission_seq_current=None,
     mission_seq_reached=None,
     mission_finished=None,
+    attitude_time_s=None,
+    roll_deg=None,
+    pitch_deg=None,
+    yaw_deg=None,
+    yaw_unwrapped_deg=None,
+    yaw_rate_deg_s=None,
 ):
     event_times = mission_event_times(
         mission_result_time_s,
@@ -331,6 +337,16 @@ def build_motion_legs_from_events(
         leg_slice = segment_slice(start_index, end_index)
         speed_mean = mean_or_none(horizontal_speed[leg_slice])
         target_altitude = mean_or_none(altitude_m[leg_slice])
+        attitude = leg_attitude_summary(
+            attitude_time_s,
+            roll_deg,
+            pitch_deg,
+            yaw_deg,
+            yaw_unwrapped_deg,
+            yaw_rate_deg_s,
+            float(time_s[start_index]),
+            float(time_s[end_index]),
+        )
         leg = {
             "index": leg_index,
             "start_time_s": float(time_s[start_index]),
@@ -340,9 +356,55 @@ def build_motion_legs_from_events(
             "target_altitude_m": finite_or_none(target_altitude)
             or finite_or_none(target_altitude_m),
             "displacement": displacement,
+            "attitude": attitude,
         }
         legs.append(leg)
     return legs
+
+
+def time_mask(time_s, start_time_s, end_time_s):
+    if time_s is None or start_time_s is None or end_time_s is None:
+        return None
+    return (time_s >= start_time_s) & (time_s <= end_time_s)
+
+
+def leg_attitude_summary(
+    attitude_time_s,
+    roll_deg,
+    pitch_deg,
+    yaw_deg,
+    yaw_unwrapped_deg,
+    yaw_rate_deg_s,
+    start_time_s,
+    end_time_s,
+):
+    mask = time_mask(attitude_time_s, start_time_s, end_time_s)
+    if mask is None or not np.any(mask):
+        return {}
+
+    leg_time = attitude_time_s[mask]
+    leg_yaw_unwrapped = yaw_unwrapped_deg[mask]
+    yaw_start = finite_or_none(leg_yaw_unwrapped[0])
+    yaw_end = finite_or_none(leg_yaw_unwrapped[-1])
+    yaw_delta = None
+    yaw_rate_mean = None
+    duration = float(leg_time[-1] - leg_time[0])
+    if yaw_start is not None and yaw_end is not None:
+        yaw_delta = yaw_end - yaw_start
+        if duration > 0:
+            yaw_rate_mean = yaw_delta / duration
+
+    return {
+        "roll_mean_deg": mean_or_none(roll_deg[mask]),
+        "roll_abs_mean_deg": mean_or_none(np.abs(roll_deg[mask])),
+        "pitch_mean_deg": mean_or_none(pitch_deg[mask]),
+        "pitch_abs_mean_deg": mean_or_none(np.abs(pitch_deg[mask])),
+        "yaw_start_deg": yaw_start,
+        "yaw_end_deg": yaw_end,
+        "yaw_delta_deg": finite_or_none(yaw_delta),
+        "yaw_rate_mean_deg_s": finite_or_none(yaw_rate_mean),
+        "yaw_rate_abs_mean_deg_s": mean_or_none(np.abs(yaw_rate_deg_s[mask])),
+    }
 
 
 def attitude_summary(attitude_time_s, roll_deg, pitch_deg, yaw_deg, yaw_rate_deg_s):
@@ -483,6 +545,12 @@ def compute_real_profile(
         mission_seq_current=mission_seq_current,
         mission_seq_reached=mission_seq_reached,
         mission_finished=mission_finished,
+        attitude_time_s=attitude_time_s,
+        roll_deg=roll_deg,
+        pitch_deg=pitch_deg,
+        yaw_deg=yaw_deg,
+        yaw_unwrapped_deg=yaw_unwrapped_deg,
+        yaw_rate_deg_s=yaw_rate_deg_s,
     )
 
     landing_after_command_duration_s = None
@@ -600,6 +668,15 @@ def build_scenario_from_profile(
                 "timeout": round(float(leg_duration + 15.0), 1),
                 "setpoint_interval_s": DEFAULT_SETPOINT_INTERVAL_S,
             }
+            attitude = leg.get("attitude", {})
+            yaw_start = attitude.get("yaw_start_deg")
+            yaw_end = attitude.get("yaw_end_deg")
+            yaw_rate = attitude.get("yaw_rate_mean_deg_s")
+            if yaw_start is not None and yaw_end is not None:
+                scenario_leg["yaw_start_deg"] = round(float(yaw_start), 3)
+                scenario_leg["yaw_end_deg"] = round(float(yaw_end), 3)
+            if yaw_rate is not None:
+                scenario_leg["yaw_rate_deg_s"] = round(float(yaw_rate), 3)
             if leg_speed is not None and np.isfinite(leg_speed) and leg_speed > 0:
                 scenario_leg["horizontal_speed_m_s"] = round(float(leg_speed), 3)
             scenario_legs.append(scenario_leg)

@@ -280,6 +280,18 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
         ),
         "horizontal_speed_m_s": float(horizontal_speed_m_s),
         "duration_s": float(duration_s),
+        "yaw_start_deg": get_nullable_number(
+            profile,
+            "yaw_start_deg",
+            None,
+            path=path,
+        ),
+        "yaw_end_deg": get_nullable_number(
+            profile,
+            "yaw_end_deg",
+            None,
+            path=path,
+        ),
         "yaw_deg": get_nullable_number(
             profile,
             "yaw_deg",
@@ -563,7 +575,13 @@ async def run_offboard_ned_motion_profile(drone, profile):
 
     def setpoint():
         elapsed = asyncio.get_running_loop().time() - start_time
-        yaw_deg = profile["yaw_deg"]
+        yaw_start_deg = profile.get("yaw_start_deg")
+        yaw_end_deg = profile.get("yaw_end_deg")
+        if yaw_start_deg is not None and yaw_end_deg is not None:
+            progress = min(1.0, max(0.0, elapsed / duration_s))
+            yaw_deg = yaw_start_deg + (yaw_end_deg - yaw_start_deg) * progress
+        else:
+            yaw_deg = profile["yaw_deg"]
         if yaw_deg is None:
             yaw_deg = profile["yaw_rate_deg_s"] * elapsed
         return VelocityNedYaw(
