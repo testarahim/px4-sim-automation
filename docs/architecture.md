@@ -182,6 +182,21 @@ This is intended for synthetic profiles that better resemble real logs with
 horizontal motion and yaw-rate before landing. PX4 still owns the final
 `action.land()` descent.
 
+Scenarios can also define `mission.px4_parameters` to tune PX4 before arming.
+The mission runner reads the original values first and restores them before
+exiting, even when the mission fails. This is useful for final landing
+experiments that keep `action.land()` in control while changing PX4 descent
+behavior:
+
+```yaml
+mission:
+  px4_parameters:
+    MPC_LAND_ALT1: 10.0
+    MPC_LAND_ALT2: 5.0
+    MPC_LAND_SPEED: 0.2
+    MPC_LAND_CRWL: 0.2
+```
+
 ## Simulation Vs Real Comparison
 
 `scripts/compare_logs.py` compares one simulation `.ulg` log against one real

@@ -6,6 +6,7 @@ import yaml
 from mavsdk import System
 from mavsdk.action import ActionError
 from mavsdk.offboard import OffboardError, VelocityBodyYawspeed, VelocityNedYaw
+from mavsdk.param import ParamError
 
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "sim_config.yaml"
@@ -73,6 +74,25 @@ def get_nullable_number(config, key, default=None, positive=False, non_negative=
         positive=positive,
         non_negative=non_negative,
     )
+
+
+def load_px4_parameters(config):
+    parameters = config.get("mission", {}).get("px4_parameters", {})
+    if parameters is None:
+        return {}
+    if not isinstance(parameters, dict):
+        raise ValueError("Config value must be a mapping: mission.px4_parameters")
+
+    resolved_parameters = {}
+    for name, value in parameters.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("PX4 parameter names must be non-empty strings")
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"Config value must be a number: mission.px4_parameters.{name}"
+            )
+        resolved_parameters[name] = value
+    return resolved_parameters
 
 
 def load_landing_profile(config):
@@ -224,6 +244,40 @@ async def arm_with_retry(drone, timeout):
             await asyncio.sleep(1)
 
     raise TimeoutError(f"Arming timed out after {timeout} seconds") from last_error
+
+
+async def apply_px4_parameters(drone, parameters):
+    original_parameters = {}
+    for name, value in parameters.items():
+        try:
+            if isinstance(value, int):
+                original_parameters[name] = (
+                    "int",
+                    await drone.param.get_param_int(name),
+                )
+                await drone.param.set_param_int(name, value)
+            else:
+                original_parameters[name] = (
+                    "float",
+                    await drone.param.get_param_float(name),
+                )
+                await drone.param.set_param_float(name, float(value))
+        except ParamError as exc:
+            raise RuntimeError(f"Failed to set PX4 parameter {name}={value}") from exc
+        report_event("px4 parameter set", f"{name}={value}")
+    return original_parameters
+
+
+async def restore_px4_parameters(drone, original_parameters):
+    for name, (value_type, value) in original_parameters.items():
+        try:
+            if value_type == "int":
+                await drone.param.set_param_int(name, value)
+            else:
+                await drone.param.set_param_float(name, value)
+        except ParamError as exc:
+            raise RuntimeError(f"Failed to restore PX4 parameter {name}") from exc
+        report_event("px4 parameter restored", f"{name}={value}")
 
 
 def offboard_profile_is_complete(position, profile, start_time):
@@ -379,51 +433,62 @@ async def run(config_path=CONFIG_PATH):
     altitude_tolerance = get_positive_number(config, "mission", "altitude_tolerance")
     landing_timeout = get_positive_number(config, "mission", "landing_timeout")
     landing_profile = load_landing_profile(config)
+    px4_parameters = load_px4_parameters(config)
     connection_timeout = get_positive_number(config, "connection", "timeout")
     preflight_timeout = get_positive_number(config, "connection", "preflight_timeout")
     arm_timeout = get_positive_number(config, "connection", "arm_timeout")
 
-    drone = System()
-    await drone.connect(system_address=DEFAULT_SYSTEM_ADDRESS)
+    try:
+        drone = System()
+        await drone.connect(system_address=DEFAULT_SYSTEM_ADDRESS)
 
-    print("Bağlanıyor...", flush=True)
-    await wait_until_connected(drone, connection_timeout)
-    report_event("connected")
+        print("Bağlanıyor...", flush=True)
+        await wait_until_connected(drone, connection_timeout)
+        report_event("connected")
 
-    print("Preflight readiness bekleniyor...", flush=True)
-    await wait_until_preflight_ready(drone, preflight_timeout)
-    report_event("preflight ready")
+        print("Preflight readiness bekleniyor...", flush=True)
+        await wait_until_preflight_ready(drone, preflight_timeout)
+        report_event("preflight ready")
 
-    print("Arm ediliyor...", flush=True)
-    await arm_with_retry(drone, arm_timeout)
-    report_event("armed")
+        original_parameters = await apply_px4_parameters(drone, px4_parameters)
 
-    print(f"Takeoff altitude set ediliyor: {takeoff_altitude} m", flush=True)
-    await drone.action.set_takeoff_altitude(takeoff_altitude)
+        print("Arm ediliyor...", flush=True)
+        await arm_with_retry(drone, arm_timeout)
+        report_event("armed")
 
-    print("Takeoff...", flush=True)
-    await drone.action.takeoff()
-    await wait_for_telemetry_value(
-        drone.telemetry.in_air(),
-        True,
-        takeoff_timeout,
-        "takeoff detection",
-    )
-    report_event("takeoff detected")
+        print(f"Takeoff altitude set ediliyor: {takeoff_altitude} m", flush=True)
+        await drone.action.set_takeoff_altitude(takeoff_altitude)
 
-    print(f"Hedef irtifa bekleniyor: {takeoff_altitude} m", flush=True)
-    reached_altitude = await wait_until_altitude_reached(
-        drone,
-        takeoff_altitude,
-        altitude_tolerance,
-        climb_timeout,
-    )
-    report_event("target altitude reached", f"{reached_altitude:.1f} m")
+        print("Takeoff...", flush=True)
+        await drone.action.takeoff()
+        await wait_for_telemetry_value(
+            drone.telemetry.in_air(),
+            True,
+            takeoff_timeout,
+            "takeoff detection",
+        )
+        report_event("takeoff detected")
 
-    print(f"Hover bekleniyor: {hover_time} s", flush=True)
-    await asyncio.sleep(hover_time)
+        print(f"Hedef irtifa bekleniyor: {takeoff_altitude} m", flush=True)
+        reached_altitude = await wait_until_altitude_reached(
+            drone,
+            takeoff_altitude,
+            altitude_tolerance,
+            climb_timeout,
+        )
+        report_event("target altitude reached", f"{reached_altitude:.1f} m")
 
-    await execute_landing(drone, landing_profile, landing_timeout)
+        print(f"Hover bekleniyor: {hover_time} s", flush=True)
+        await asyncio.sleep(hover_time)
+
+        await execute_landing(drone, landing_profile, landing_timeout)
+    finally:
+        if "drone" in locals():
+            try:
+                if "original_parameters" in locals():
+                    await restore_px4_parameters(drone, original_parameters)
+            finally:
+                drone._stop_mavsdk_server()
 
 if __name__ == "__main__":
     args = parse_args()

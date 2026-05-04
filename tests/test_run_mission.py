@@ -4,6 +4,43 @@ from scripts import run_mission
 
 
 class RunMissionConfigTests(unittest.TestCase):
+    def test_px4_parameters_default_to_empty_mapping(self):
+        parameters = run_mission.load_px4_parameters({"mission": {}})
+
+        self.assertEqual(parameters, {})
+
+    def test_px4_parameters_load_numeric_values(self):
+        parameters = run_mission.load_px4_parameters(
+            {
+                "mission": {
+                    "px4_parameters": {
+                        "MPC_LAND_SPEED": 0.2,
+                        "MPC_LAND_RC_HELP": 1,
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(
+            parameters,
+            {
+                "MPC_LAND_SPEED": 0.2,
+                "MPC_LAND_RC_HELP": 1,
+            },
+        )
+
+    def test_px4_parameters_reject_non_mapping(self):
+        with self.assertRaises(ValueError):
+            run_mission.load_px4_parameters(
+                {"mission": {"px4_parameters": ["MPC_LAND_SPEED"]}}
+            )
+
+    def test_px4_parameters_reject_non_numeric_value(self):
+        with self.assertRaises(ValueError):
+            run_mission.load_px4_parameters(
+                {"mission": {"px4_parameters": {"MPC_LAND_SPEED": "slow"}}}
+            )
+
     def test_landing_profile_defaults_to_standard(self):
         profile = run_mission.load_landing_profile({"mission": {}})
 

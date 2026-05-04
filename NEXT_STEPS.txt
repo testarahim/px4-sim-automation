@@ -8,6 +8,28 @@ demek degildir. Hedefimiz; gorev calistiran, log toplayan, logdan metrik
 cikaran, pass/fail sonucu ureten ve ileride gercek ucus loglariyla
 karsilastirilabilecek bir test sistemi olusturmaktir.
 
+Yeni Bakis Acisi
+----------------
+Sim ucusunu elle real loga benzetmeye calismak yerine real log once
+incelenmelidir. Bir real log icin once su bilgiler cikarilmalidir:
+
+- Kalkis irtifasi.
+- Gorev suresi ve faz sureleri.
+- Gorev hizi / yatay hiz profili.
+- Bir noktaya goto/mission benzeri hareket yapildiysa kac metre gidildigi.
+- Hareket yonu: north/east bilesenleri veya heading acisi.
+- Inis baslangici, inis suresi ve inis hiz profili.
+
+Sonra bu profilden sim scenario uretilmelidir. Sim kosusu bu scenario ile
+calistirilmali, artifact/log/metrik uretilmeli ve real logla takeoff-aligned
+olarak karsilastirilmalidir. Yani akisin yeni sirasi:
+
+1. Real logu profil olarak analiz et.
+2. Bu profilden scenario taslagi uret.
+3. Scenario'yu SITL'de calistir.
+4. Sim logunu real logla karsilastir.
+5. Metriklere gore scenario veya mission kabiliyetini gelistir.
+
 Mevcut Durum
 ------------
 - PX4 v1.16.2 home dizininde kurulu.
@@ -45,9 +67,56 @@ Mevcut Durum
   serisi uzerinden on analiz ediyor; initial/max/final altitude, airborne
   start, takeoff_detected ve landing_detected alanlarini JSON/CSV olarak
   uretiyor.
+- scripts/run_mission.py artik opsiyonel mission.px4_parameters alanini
+  destekliyor; parametreleri arm oncesi set ediyor ve mission sonunda eski
+  degerlerine geri yukluyor.
 
 Son Yapilan Is
 --------------
+- PX4 land parametreleriyle daha yavas final landing deneyi eklendi.
+  - scripts/run_mission.py artik mission.px4_parameters mapping'ini okuyor.
+  - Desteklenen degerler numeric PX4 parametreleridir; int degerler
+    set_param_int, float degerler set_param_float ile uygulanir.
+  - Parametreler uygulanmadan once eski degerleri okunur; mission basarili
+    olsa da hata verse de finally akisi icinde geri yuklenir.
+  - MAVSDK server'in run sonunda asili kalmamasi icin mission sonunda
+    _stop_mavsdk_server() cagrisi eklendi.
+  - Yeni scenario dosyasi eklendi:
+    scenarios/slow_profiled_landing_31m.yaml
+    takeoff_altitude=31, hover_time=10,
+    landing_profile=offboard_ned approach,
+    MPC_LAND_ALT1=10.0, MPC_LAND_ALT2=5.0,
+    MPC_LAND_SPEED=0.2, MPC_LAND_CRWL=0.2.
+  - Ilk daha agresif denemede MPC_LAND_ALT1=31 ve MPC_LAND_ALT2=30 ile
+    takeoff/climb akisi hedef irtifaya zamaninda ulasamadi. Bu nedenle
+    senaryo daha konservatif MPC_LAND_ALT1=10, MPC_LAND_ALT2=5 degerlerine
+    cekildi.
+  - SITL kosusu calistirildi:
+    bash run.sh scenarios/slow_profiled_landing_31m.yaml
+  - Run artifact klasoru:
+    results/runs/20260504_125253/
+  - Slow profiled landing SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=31.0, max_altitude_m=31.054453,
+    final_altitude_m=-0.026959, max_altitude_error_m=0.054453,
+    hover_altitude_rmse_m=0.365993, landing_duration_s=71.044,
+    duration_s=112.308.
+  - Onceki profiled_landing_31m kosusunda landing_duration_s=51.284 idi;
+    yeni parametreli kosuda landing_duration_s=71.044 oldu. Bu final landing
+    inisini yavaslatma yonunde olculen bir iyilesmedir.
+  - Kisa regresyon kosusu calistirildi:
+    bash run.sh scenarios/short_hover.yaml
+    Run artifact klasoru: results/runs/20260504_130251/
+    Sonuc: overall_pass=true ve run.sh ucundan ucuna temiz kapandi.
+  - Testler calistirildi:
+    python3 -m unittest discover -s tests
+    Sonuc: 28 test OK.
+  - Yorum: PX4 parametreleri final descent hizini yavaslatmak icin ise
+    yariyor. Fakat final action.land() hala yatay/yaw-rate davranisi
+    uretmiyor; landing segmentindeki horizontal_speed ve yaw_rate hedefleri
+    icin MAVSDK Mission/Waypoint tabanli alcalan approach veya baska bir
+    final landing stratejisi denenmeli.
+
 - Landing davranisini eslestirecek sim senaryosu tasarlandi ve eklendi.
   - scripts/run_mission.py artik opsiyonel mission.landing_profile alanini
     destekliyor.
@@ -112,16 +181,24 @@ Son Yapilan Is
 Siradaki Yapilacaklar
 ---------------------
 
-1. Final landing davranisini daha gercekci hale getir
-    - Offboard velocity descent denemeleri gz_x500 uzerinde beklenen irtifa
-      azalmasini uretmedi; sadece approach fazi guvenilir calisti.
-    - Alternatif olarak MAVSDK Mission/Waypoint tabanli descent veya PX4
-      parametreleriyle daha yavas final land profili denenebilir.
-    - Hedef: landing segmentinde descent_rate_mean_mps'i 0.2 m/s civarina,
-      horizontal_speed_mean_mps'i ~2 m/s civarina ve yaw_rate_abs_mean_deg_s'i
-      ~10 deg/s civarina yaklastirmak.
+1. Real logdan scenario uretme akisini kur
+    - Secilen real .ulg log icin kalkis irtifasi, toplam/gorev/faz sureleri,
+      yatay hiz, gidilen mesafe ve hareket yonu cikarilmali.
+    - Goto/mission benzeri hareket varsa north/east displacement ve heading
+      hesaplanmali.
+    - Bu bilgilerden scenario YAML taslagi uretilmeli.
+    - Uretilen scenario SITL'de calistirilmali.
+    - Sim logu real logla --alignment takeoff ile karsilastirilmali.
 
-2. Ileride eklenebilecek iyilestirmeler
+2. Mission kabiliyetini real profilden gelen ihtiyaca gore genislet
+    - Real log sadece takeoff-hover-land degilse, run_mission.py icine
+      goto/waypoint veya mission tabanli hareket eklenmeli.
+    - Hareket north/east displacement, hedef irtifa, yatay hiz ve sure
+      parametreleriyle scenario'dan kontrol edilebilmeli.
+    - Final landing yatay/yaw davranisi da real log profili gerektiriyorsa
+      bu yeni hareket modelinin parcasi olarak ele alinmali.
+
+3. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
       scenario listesi ve git commit hash'i.
     - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
@@ -154,8 +231,8 @@ Bu projede her yeni adim su prensibe uymali:
 3. Log/artifact kaydet.
 4. Metrik hesapla.
 5. Pass/fail sonucu uret.
-6. Tamamlanan isi git commit'e al; commit mesajinda yapilan islerin
-   durum ozetini belirt.
+6. Tamamlanan her isi git commit'e al; bu adim unutulmayacak. Commit
+   mesajinda yapilan islerin durum ozetini belirt.
 7. Commitler kullanicinin git kimligiyle atilmali:
    Abdurrahim TIRABZON <arahimtirabzon@gmail.com>.
 
