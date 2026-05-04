@@ -15,6 +15,7 @@ DEFAULT_GROUND_ALTITUDE_M = 0.3
 DEFAULT_TAKEOFF_THRESHOLD_M = 1.0
 DEFAULT_ALTITUDE_TOLERANCE_M = 1.2
 DEFAULT_SETPOINT_INTERVAL_S = 0.2
+NAVIGATION_STATE_AUTO_LAND = 18
 
 
 def parse_args():
@@ -67,15 +68,33 @@ def relative_time(timestamp_us):
 def load_local_position(log_path):
     ulog = ULog(str(log_path))
     data = ulog.get_dataset("vehicle_local_position")
-    time_s = relative_time(data.data["timestamp"])
+    base_timestamp_us = data.data["timestamp"][0]
+    time_s = (data.data["timestamp"] - base_timestamp_us) * 1e-6
     return {
         "time_s": time_s,
+        "base_timestamp_us": base_timestamp_us,
         "x_m": data.data["x"],
         "y_m": data.data["y"],
         "altitude_m": -data.data["z"],
         "vx_m_s": data.data["vx"],
         "vy_m_s": data.data["vy"],
         "vz_m_s": data.data["vz"],
+    }
+
+
+def load_vehicle_status(log_path, base_timestamp_us):
+    ulog = ULog(str(log_path))
+    try:
+        data = ulog.get_dataset("vehicle_status")
+    except (KeyError, IndexError, ValueError):
+        return {}
+
+    if "nav_state" not in data.data:
+        return {}
+
+    return {
+        "vehicle_status_time_s": (data.data["timestamp"] - base_timestamp_us) * 1e-6,
+        "nav_state": data.data["nav_state"],
     }
 
 
@@ -117,6 +136,30 @@ def segment_slice(start_index, end_index):
     return slice(start_index, end_index + 1)
 
 
+def first_nav_state_time(status_time_s, nav_state, target_state, start_time_s=None):
+    if status_time_s is None or nav_state is None:
+        return None
+
+    matching_indexes = np.flatnonzero(nav_state == target_state)
+    if matching_indexes.size == 0:
+        return None
+
+    if start_time_s is None:
+        return float(status_time_s[matching_indexes[0]])
+
+    for index in matching_indexes:
+        if status_time_s[index] >= start_time_s:
+            return float(status_time_s[index])
+    return None
+
+
+def index_at_or_before_time(time_s, target_time_s):
+    if target_time_s is None:
+        return None
+    index = int(np.searchsorted(time_s, target_time_s, side="right") - 1)
+    return max(0, min(index, len(time_s) - 1))
+
+
 def compute_displacement(x_m, y_m, start_index, end_index):
     if start_index is None or end_index is None or end_index <= start_index:
         return {
@@ -148,6 +191,9 @@ def compute_real_profile(
     vx_m_s,
     vy_m_s,
     vz_m_s,
+    base_timestamp_us=None,
+    vehicle_status_time_s=None,
+    nav_state=None,
     ground_altitude_m=DEFAULT_GROUND_ALTITUDE_M,
     takeoff_threshold_m=DEFAULT_TAKEOFF_THRESHOLD_M,
 ):
@@ -187,7 +233,25 @@ def compute_real_profile(
     if landing_index is None:
         landing_index = len(time_s) - 1
 
-    cruise_slice = segment_slice(target_reached_index, landing_index)
+    takeoff_time_s = time_s[takeoff_index] if takeoff_index is not None else None
+    target_reached_time_s = (
+        time_s[target_reached_index] if target_reached_index is not None else None
+    )
+    landing_time_s = time_s[landing_index] if landing_index is not None else None
+    landing_start_time_s = first_nav_state_time(
+        vehicle_status_time_s,
+        nav_state,
+        NAVIGATION_STATE_AUTO_LAND,
+        start_time_s=target_reached_time_s,
+    )
+    landing_start_index = index_at_or_before_time(time_s, landing_start_time_s)
+    landing_command_detected = (
+        landing_start_index is not None and landing_start_index < landing_index
+    )
+    cruise_end_index = landing_start_index if landing_command_detected else landing_index
+
+    cruise_slice = segment_slice(target_reached_index, cruise_end_index)
+    landing_slice = segment_slice(landing_start_index, landing_index)
     airborne_slice = segment_slice(takeoff_index, landing_index)
     horizontal_speed = np.sqrt(vx_m_s**2 + vy_m_s**2)
     vertical_speed_down = vz_m_s
@@ -196,6 +260,12 @@ def compute_real_profile(
         x_m,
         y_m,
         target_reached_index,
+        cruise_end_index,
+    )
+    landing_displacement = compute_displacement(
+        x_m,
+        y_m,
+        landing_start_index,
         landing_index,
     )
     total_displacement = compute_displacement(
@@ -205,22 +275,26 @@ def compute_real_profile(
         landing_index,
     )
 
-    takeoff_time_s = time_s[takeoff_index] if takeoff_index is not None else None
-    target_reached_time_s = (
-        time_s[target_reached_index] if target_reached_index is not None else None
-    )
-    landing_time_s = time_s[landing_index] if landing_index is not None else None
-
     cruise_duration_s = None
-    if target_reached_time_s is not None and landing_time_s is not None:
-        cruise_duration_s = max(0.0, float(landing_time_s - target_reached_time_s))
+    cruise_end_time_s = time_s[cruise_end_index] if cruise_end_index is not None else None
+    if target_reached_time_s is not None and cruise_end_time_s is not None:
+        cruise_duration_s = max(0.0, float(cruise_end_time_s - target_reached_time_s))
+
+    landing_after_command_duration_s = None
+    if landing_start_time_s is not None and landing_time_s is not None:
+        landing_after_command_duration_s = max(
+            0.0,
+            float(landing_time_s - landing_start_time_s),
+        )
 
     profile = {
         "duration_s": duration_s,
         "takeoff_detected": takeoff_index is not None,
         "landing_detected": landing_detected,
+        "landing_command_detected": landing_command_detected,
         "takeoff_time_s": finite_or_none(takeoff_time_s),
         "target_reached_time_s": finite_or_none(target_reached_time_s),
+        "landing_start_time_s": finite_or_none(landing_start_time_s),
         "landing_time_s": finite_or_none(landing_time_s),
         "initial_altitude_m": float(altitude_m[0]),
         "target_altitude_m": target_altitude_m,
@@ -234,6 +308,9 @@ def compute_real_profile(
             else None
         ),
         "cruise_duration_s": finite_or_none(cruise_duration_s),
+        "landing_after_command_duration_s": finite_or_none(
+            landing_after_command_duration_s
+        ),
         "horizontal_speed_mean_m_s": mean_or_none(horizontal_speed[airborne_slice]),
         "horizontal_speed_p95_m_s": percentile_or_none(
             horizontal_speed[airborne_slice],
@@ -245,7 +322,14 @@ def compute_real_profile(
         "descent_rate_mean_m_s": mean_or_none(
             vertical_speed_down[cruise_slice][vertical_speed_down[cruise_slice] > 0]
         ),
+        "landing_horizontal_speed_mean_m_s": mean_or_none(
+            horizontal_speed[landing_slice]
+        ),
+        "landing_descent_rate_mean_m_s": mean_or_none(
+            vertical_speed_down[landing_slice][vertical_speed_down[landing_slice] > 0]
+        ),
         "cruise_displacement": cruise_displacement,
+        "landing_displacement": landing_displacement,
         "total_displacement": total_displacement,
     }
     return profile
@@ -346,9 +430,14 @@ def main():
     log_path = resolve_path(args.log)
     output_json = resolve_path(args.output_json)
     local_position = load_local_position(log_path)
+    vehicle_status = load_vehicle_status(
+        log_path,
+        local_position["base_timestamp_us"],
+    )
     profile = compute_real_profile(
         ground_altitude_m=args.ground_altitude_m,
         takeoff_threshold_m=args.takeoff_threshold_m,
+        **vehicle_status,
         **local_position,
     )
     profile["log"] = str(log_path)

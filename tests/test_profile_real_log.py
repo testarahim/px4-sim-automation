@@ -81,6 +81,37 @@ class ProfileRealLogTests(unittest.TestCase):
         self.assertEqual(mission["motion_profile"]["horizontal_speed_m_s"], 2.0)
         self.assertEqual(mission["motion_profile"]["duration_s"], 25.0)
 
+    def test_compute_real_profile_uses_auto_land_to_end_cruise(self):
+        time_s = np.array([0.0, 2.0, 4.0, 6.0, 8.0, 10.0])
+        x_m = np.array([0.0, 0.0, 2.0, 8.0, 8.0, 8.0])
+        y_m = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 2.0])
+        altitude_m = np.array([0.0, 1.2, 9.0, 10.0, 8.0, 0.1])
+        vx_m_s = np.array([0.0, 0.0, 1.0, 3.0, 0.0, 0.0])
+        vy_m_s = np.array([0.0, 0.0, 0.0, 0.0, 1.0, 0.0])
+        vz_m_s = np.array([0.0, -1.0, -1.0, 0.0, 1.0, 1.0])
+
+        profile = profile_real_log.compute_real_profile(
+            time_s,
+            x_m,
+            y_m,
+            altitude_m,
+            vx_m_s,
+            vy_m_s,
+            vz_m_s,
+            vehicle_status_time_s=np.array([0.0, 8.0]),
+            nav_state=np.array([4, profile_real_log.NAVIGATION_STATE_AUTO_LAND]),
+            ground_altitude_m=0.3,
+            takeoff_threshold_m=1.0,
+        )
+
+        self.assertTrue(profile["landing_command_detected"])
+        self.assertEqual(profile["landing_start_time_s"], 8.0)
+        self.assertEqual(profile["cruise_duration_s"], 4.0)
+        self.assertAlmostEqual(profile["cruise_displacement"]["north_m"], 6.0)
+        self.assertAlmostEqual(profile["cruise_displacement"]["east_m"], 0.0)
+        self.assertAlmostEqual(profile["landing_displacement"]["north_m"], 0.0)
+        self.assertAlmostEqual(profile["landing_displacement"]["east_m"], 2.0)
+
     def test_build_scenario_without_motion_uses_hover_only(self):
         profile = {
             "target_altitude_m": 8.0,

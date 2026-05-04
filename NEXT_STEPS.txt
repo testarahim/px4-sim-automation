@@ -77,6 +77,81 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
+- Ikinci kontrollu QGroundControl SITL logu analiz edildi ve sim-real
+  karsilastirmasi icin scenario uretildi.
+  - Yeni referans log PX4 rootfs'ten kopyalandi:
+    data/real/qgc_sitl_reference/reference_qgc_sitl_02.ulg
+  - profile_real_log.py iyilestirildi:
+    vehicle_status.nav_state icinden AUTO_LAND baslangicini okuyarak
+    cruise fazini landing fazindan ayiriyor. Boylece cruise displacement,
+    cruise duration ve cruise horizontal speed land komutuna kadar
+    hesaplaniyor; landing_after_command_duration_s, landing_displacement,
+    landing_horizontal_speed_mean_m_s ve landing_descent_rate_mean_m_s
+    alanlari eklendi.
+  - Profil ve scenario uretildi:
+    results/real_profiles/qgc_sitl_02_profile.json
+    scenarios/generated_qgc_sitl_02.yaml
+  - QGC referans profil ozeti:
+    target_altitude_m=20.018990, max_altitude_m=20.097933,
+    takeoff_time_s=260.540, target_reached_time_s=271.052,
+    landing_start_time_s=301.692, landing_time_s=320.508,
+    airborne_duration_s=59.968,
+    cruise_duration_s=30.640,
+    cruise_displacement north=31.195278, east=22.916008,
+    distance=38.707736, heading_deg=36.300952,
+    cruise_horizontal_speed_mean_m_s=2.862781,
+    landing_after_command_duration_s=18.816,
+    landing_descent_rate_mean_m_s=1.052731.
+  - vehicle_status/faz ozeti:
+    AUTO_LOITER t=293.904s, AUTO_LAND t=301.692s,
+    disarm t=324.084s.
+    Takeoff climb duration=10.512s,
+    cruise_before_land_command duration=30.640s, distance=38.708m,
+    horizontal_speed_mean=2.863m/s,
+    landing_after_land_command duration=18.816s,
+    descent_rate_mean=1.053m/s.
+  - Generated scenario SITL'de calistirildi:
+    RUN_ID=qgc_sitl_02_generated_20260504_01
+    bash run.sh scenarios/generated_qgc_sitl_02.yaml
+  - Run artifact klasoru:
+    results/runs/qgc_sitl_02_generated_20260504_01/
+  - Generated QGC 02 scenario SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=20.0, max_altitude_m=19.993366,
+    final_altitude_m=0.019008, max_altitude_error_m=0.006634,
+    hover_altitude_rmse_m=0.291254, landing_duration_s=32.304,
+    duration_s=73.996.
+  - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py
+      --config scenarios/generated_qgc_sitl_02.yaml
+      --alignment takeoff
+      --sim results/runs/qgc_sitl_02_generated_20260504_01/px4.ulg
+      --real data/real/qgc_sitl_reference/reference_qgc_sitl_02.ulg
+      --metrics
+        results/comparisons/qgc_sitl_02_generated_takeoff_aligned_metrics.json
+      --plot-dir
+        results/plots/comparisons/qgc_sitl_02_generated_takeoff_aligned
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=0.662804, velocity_rmse=2.484274,
+    roll_rmse=3.998803, pitch_rmse=5.786144,
+    yaw_rmse=78.882956,
+    yaw_heading_normalized_rmse=70.807832.
+  - Segment bazinda altitude cok iyi eslesti:
+    takeoff_climb altitude_rmse=0.052601,
+    hover_cruise altitude_rmse=0.069585,
+    landing altitude_rmse=0.014935.
+  - Ana farklar hover_cruise hiz/yaw tarafinda:
+    hover_cruise sim duration=32.024s, real duration=31.048s,
+    sim horizontal_speed_mean_mps=1.274,
+    real horizontal_speed_mean_mps=2.827,
+    sim yaw_rate_abs_mean_deg_s=5.990,
+    real yaw_rate_abs_mean_deg_s=14.641.
+  - Yorum: Yeni AUTO_LAND tabanli profil ayrimi scenario suresini ve landing
+    fazini daha dogru ayirdi. Irtifa ve landing sureleri iyi eslesiyor.
+    Siradaki iyilestirme motion_profile fazini compare_logs.py icinde ayri
+    segment olarak olcmek ve QGC loglarindaki yaw/heading degisimini
+    profile_real_log.py icinden scenario'ya aktarmak olmali.
+
 - QGroundControl ile yapilan kontrollu SITL ucusu real-first referans olarak
   analiz edildi ve otomatik tekrar kosusu yapildi.
   - QGC ucus logu analiz edildi:

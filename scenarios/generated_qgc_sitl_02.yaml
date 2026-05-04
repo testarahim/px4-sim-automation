@@ -1,0 +1,33 @@
+sitl:
+  startup_timeout: 90
+  startup_ready_patterns:
+  - Startup script returned successfully
+connection:
+  timeout: 30
+  preflight_timeout: 45
+  arm_timeout: 20
+mission:
+  takeoff_altitude: 20.0
+  hover_time: 17.1
+  takeoff_timeout: 20
+  climb_timeout: 60
+  altitude_tolerance: 1.2
+  landing_timeout: 80
+  motion_profile:
+    mode: offboard_ned
+    north_m: 31.195
+    east_m: 22.916
+    target_altitude_m: 20.0
+    horizontal_speed_m_s: 2.863
+    yaw_rate_deg_s: 0.0
+    duration_s: 13.5
+    timeout: 28.5
+    setpoint_interval_s: 0.2
+paths:
+  px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log
+thresholds:
+  max_altitude_error_m: 2.0
+  hover_altitude_rmse_m: 2.0
+  max_landing_final_altitude_m: 0.3
+  velocity_rmse: 1.0
+  attitude_rmse: 5.0
