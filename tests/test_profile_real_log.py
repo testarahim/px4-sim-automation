@@ -166,8 +166,26 @@ class ProfileRealLogTests(unittest.TestCase):
             profile["mission_legs"][0]["yaw_setpoints"][-1],
             {"time_s": 2.0, "yaw_deg": 20.0},
         )
+        self.assertEqual(
+            profile["mission_legs"][0]["velocity_setpoints"][0],
+            {
+                "time_s": 0.0,
+                "north_velocity_m_s": 2.5,
+                "east_velocity_m_s": 0.0,
+                "down_velocity_m_s": 0.0,
+            },
+        )
+        self.assertEqual(
+            profile["mission_legs"][0]["velocity_setpoints"][-1],
+            {
+                "time_s": 2.0,
+                "north_velocity_m_s": 0.0,
+                "east_velocity_m_s": 3.0,
+                "down_velocity_m_s": 0.0,
+            },
+        )
 
-    def test_build_scenario_from_profile_adds_yaw_setpoints(self):
+    def test_build_scenario_from_profile_adds_setpoint_series(self):
         scenario = profile_real_log.build_scenario_from_profile(
             {
                 "target_altitude_m": 10.0,
@@ -198,6 +216,20 @@ class ProfileRealLogTests(unittest.TestCase):
                             {"time_s": 0.0, "yaw_deg": 10.0},
                             {"time_s": 2.0, "yaw_deg": 30.0},
                         ],
+                        "velocity_setpoints": [
+                            {
+                                "time_s": 0.0,
+                                "north_velocity_m_s": 1.0,
+                                "east_velocity_m_s": 0.0,
+                                "down_velocity_m_s": 0.0,
+                            },
+                            {
+                                "time_s": 2.0,
+                                "north_velocity_m_s": 0.0,
+                                "east_velocity_m_s": 1.0,
+                                "down_velocity_m_s": 0.0,
+                            },
+                        ],
                     }
                 ],
             }
@@ -209,6 +241,23 @@ class ProfileRealLogTests(unittest.TestCase):
             [
                 {"time_s": 0.0, "yaw_deg": 10.0},
                 {"time_s": 2.0, "yaw_deg": 30.0},
+            ],
+        )
+        self.assertEqual(
+            leg["velocity_setpoints"],
+            [
+                {
+                    "time_s": 0.0,
+                    "north_velocity_m_s": 1.0,
+                    "east_velocity_m_s": 0.0,
+                    "down_velocity_m_s": 0.0,
+                },
+                {
+                    "time_s": 2.0,
+                    "north_velocity_m_s": 0.0,
+                    "east_velocity_m_s": 1.0,
+                    "down_velocity_m_s": 0.0,
+                },
             ],
         )
 

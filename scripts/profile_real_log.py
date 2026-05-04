@@ -302,6 +302,9 @@ def build_motion_legs_from_events(
     x_m,
     y_m,
     altitude_m,
+    vx_m_s,
+    vy_m_s,
+    vz_m_s,
     horizontal_speed,
     start_time_s,
     end_time_s,
@@ -360,6 +363,14 @@ def build_motion_legs_from_events(
             float(time_s[start_index]),
             float(time_s[end_index]),
         )
+        velocity_setpoints = leg_velocity_setpoints(
+            time_s,
+            vx_m_s,
+            vy_m_s,
+            vz_m_s,
+            float(time_s[start_index]),
+            float(time_s[end_index]),
+        )
         leg = {
             "index": leg_index,
             "start_time_s": float(time_s[start_index]),
@@ -371,6 +382,7 @@ def build_motion_legs_from_events(
             "displacement": displacement,
             "attitude": attitude,
             "yaw_setpoints": yaw_setpoints,
+            "velocity_setpoints": velocity_setpoints,
         }
         legs.append(leg)
     return legs
@@ -416,6 +428,56 @@ def leg_yaw_setpoints(
             {
                 "time_s": rounded_time_s,
                 "yaw_deg": round(float(yaw_value), 3),
+            }
+        )
+    return setpoints
+
+
+def leg_velocity_setpoints(
+    time_s,
+    vx_m_s,
+    vy_m_s,
+    vz_m_s,
+    start_time_s,
+    end_time_s,
+    interval_s=DEFAULT_SETPOINT_INTERVAL_S,
+):
+    mask = time_mask(time_s, start_time_s, end_time_s)
+    if mask is None or not np.any(mask):
+        return []
+
+    leg_time = time_s[mask]
+    duration_s = float(end_time_s - start_time_s)
+    if leg_time.size == 0 or duration_s <= 0:
+        return []
+
+    sample_times = np.arange(0.0, duration_s, interval_s)
+    if sample_times.size == 0 or sample_times[-1] < duration_s:
+        sample_times = np.append(sample_times, duration_s)
+
+    absolute_sample_times = start_time_s + sample_times
+    north_velocity = np.interp(absolute_sample_times, leg_time, vx_m_s[mask])
+    east_velocity = np.interp(absolute_sample_times, leg_time, vy_m_s[mask])
+    down_velocity = np.interp(absolute_sample_times, leg_time, vz_m_s[mask])
+
+    setpoints = []
+    previous_time_s = None
+    for time_value, north_value, east_value, down_value in zip(
+        sample_times,
+        north_velocity,
+        east_velocity,
+        down_velocity,
+    ):
+        rounded_time_s = round(float(time_value), 3)
+        if previous_time_s is not None and rounded_time_s <= previous_time_s:
+            continue
+        previous_time_s = rounded_time_s
+        setpoints.append(
+            {
+                "time_s": rounded_time_s,
+                "north_velocity_m_s": round(float(north_value), 3),
+                "east_velocity_m_s": round(float(east_value), 3),
+                "down_velocity_m_s": round(float(down_value), 3),
             }
         )
     return setpoints
@@ -590,6 +652,9 @@ def compute_real_profile(
         x_m,
         y_m,
         altitude_m,
+        vx_m_s,
+        vy_m_s,
+        vz_m_s,
         horizontal_speed,
         target_reached_time_s,
         cruise_end_time_s,
@@ -733,6 +798,9 @@ def build_scenario_from_profile(
             yaw_setpoints = leg.get("yaw_setpoints", [])
             if yaw_setpoints:
                 scenario_leg["yaw_setpoints"] = yaw_setpoints
+            velocity_setpoints = leg.get("velocity_setpoints", [])
+            if velocity_setpoints:
+                scenario_leg["velocity_setpoints"] = velocity_setpoints
             if leg_speed is not None and np.isfinite(leg_speed) and leg_speed > 0:
                 scenario_leg["horizontal_speed_m_s"] = round(float(leg_speed), 3)
             scenario_legs.append(scenario_leg)

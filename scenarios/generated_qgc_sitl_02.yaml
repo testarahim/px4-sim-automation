@@ -90,6 +90,135 @@ mission:
         yaw_deg: -62.934
       - time_s: 6.104
         yaw_deg: -62.557
+      velocity_setpoints:
+      - time_s: 0.0
+        north_velocity_m_s: 0.01
+        east_velocity_m_s: -0.006
+        down_velocity_m_s: -0.412
+      - time_s: 0.2
+        north_velocity_m_s: 0.009
+        east_velocity_m_s: -0.023
+        down_velocity_m_s: -0.386
+      - time_s: 0.4
+        north_velocity_m_s: 0.114
+        east_velocity_m_s: -0.171
+        down_velocity_m_s: -0.391
+      - time_s: 0.6
+        north_velocity_m_s: 0.369
+        east_velocity_m_s: -0.502
+        down_velocity_m_s: -0.359
+      - time_s: 0.8
+        north_velocity_m_s: 0.629
+        east_velocity_m_s: -0.999
+        down_velocity_m_s: -0.299
+      - time_s: 1.0
+        north_velocity_m_s: 0.834
+        east_velocity_m_s: -1.602
+        down_velocity_m_s: -0.233
+      - time_s: 1.2
+        north_velocity_m_s: 1.044
+        east_velocity_m_s: -2.208
+        down_velocity_m_s: -0.185
+      - time_s: 1.4
+        north_velocity_m_s: 1.288
+        east_velocity_m_s: -2.79
+        down_velocity_m_s: -0.144
+      - time_s: 1.6
+        north_velocity_m_s: 1.553
+        east_velocity_m_s: -3.352
+        down_velocity_m_s: -0.121
+      - time_s: 1.8
+        north_velocity_m_s: 1.836
+        east_velocity_m_s: -3.904
+        down_velocity_m_s: -0.136
+      - time_s: 2.0
+        north_velocity_m_s: 2.131
+        east_velocity_m_s: -4.436
+        down_velocity_m_s: -0.137
+      - time_s: 2.2
+        north_velocity_m_s: 2.434
+        east_velocity_m_s: -4.959
+        down_velocity_m_s: -0.132
+      - time_s: 2.4
+        north_velocity_m_s: 2.733
+        east_velocity_m_s: -5.474
+        down_velocity_m_s: -0.117
+      - time_s: 2.6
+        north_velocity_m_s: 3.02
+        east_velocity_m_s: -5.924
+        down_velocity_m_s: -0.08
+      - time_s: 2.8
+        north_velocity_m_s: 3.268
+        east_velocity_m_s: -6.22
+        down_velocity_m_s: -0.039
+      - time_s: 3.0
+        north_velocity_m_s: 3.383
+        east_velocity_m_s: -6.357
+        down_velocity_m_s: -0.018
+      - time_s: 3.2
+        north_velocity_m_s: 3.348
+        east_velocity_m_s: -6.348
+        down_velocity_m_s: -0.014
+      - time_s: 3.4
+        north_velocity_m_s: 3.249
+        east_velocity_m_s: -6.205
+        down_velocity_m_s: -0.011
+      - time_s: 3.6
+        north_velocity_m_s: 3.125
+        east_velocity_m_s: -5.938
+        down_velocity_m_s: -0.011
+      - time_s: 3.8
+        north_velocity_m_s: 2.984
+        east_velocity_m_s: -5.546
+        down_velocity_m_s: -0.031
+      - time_s: 4.0
+        north_velocity_m_s: 2.839
+        east_velocity_m_s: -5.03
+        down_velocity_m_s: -0.039
+      - time_s: 4.2
+        north_velocity_m_s: 2.67
+        east_velocity_m_s: -4.475
+        down_velocity_m_s: -0.016
+      - time_s: 4.4
+        north_velocity_m_s: 2.461
+        east_velocity_m_s: -3.95
+        down_velocity_m_s: 0.004
+      - time_s: 4.6
+        north_velocity_m_s: 2.22
+        east_velocity_m_s: -3.492
+        down_velocity_m_s: 0.008
+      - time_s: 4.8
+        north_velocity_m_s: 1.958
+        east_velocity_m_s: -3.112
+        down_velocity_m_s: 0.002
+      - time_s: 5.0
+        north_velocity_m_s: 1.702
+        east_velocity_m_s: -2.795
+        down_velocity_m_s: -0.004
+      - time_s: 5.2
+        north_velocity_m_s: 1.467
+        east_velocity_m_s: -2.518
+        down_velocity_m_s: -0.008
+      - time_s: 5.4
+        north_velocity_m_s: 1.247
+        east_velocity_m_s: -2.267
+        down_velocity_m_s: -0.008
+      - time_s: 5.6
+        north_velocity_m_s: 1.062
+        east_velocity_m_s: -2.037
+        down_velocity_m_s: -0.004
+      - time_s: 5.8
+        north_velocity_m_s: 0.945
+        east_velocity_m_s: -1.817
+        down_velocity_m_s: -0.004
+      - time_s: 6.0
+        north_velocity_m_s: 0.87
+        east_velocity_m_s: -1.609
+        down_velocity_m_s: -0.006
+      - time_s: 6.104
+        north_velocity_m_s: 0.839
+        east_velocity_m_s: -1.51
+        down_velocity_m_s: -0.003
       horizontal_speed_m_s: 3.942
     - north_m: 29.057
       east_m: 17.761
@@ -183,6 +312,171 @@ mission:
         yaw_deg: 36.461
       - time_s: 7.912
         yaw_deg: 36.518
+      velocity_setpoints:
+      - time_s: 0.0
+        north_velocity_m_s: 0.839
+        east_velocity_m_s: -1.51
+        down_velocity_m_s: -0.003
+      - time_s: 0.2
+        north_velocity_m_s: 0.838
+        east_velocity_m_s: -1.385
+        down_velocity_m_s: -0.01
+      - time_s: 0.4
+        north_velocity_m_s: 0.947
+        east_velocity_m_s: -1.194
+        down_velocity_m_s: -0.038
+      - time_s: 0.6
+        north_velocity_m_s: 1.082
+        east_velocity_m_s: -0.812
+        down_velocity_m_s: -0.04
+      - time_s: 0.8
+        north_velocity_m_s: 1.173
+        east_velocity_m_s: -0.28
+        down_velocity_m_s: -0.021
+      - time_s: 1.0
+        north_velocity_m_s: 1.247
+        east_velocity_m_s: 0.269
+        down_velocity_m_s: 0.029
+      - time_s: 1.2
+        north_velocity_m_s: 1.326
+        east_velocity_m_s: 0.676
+        down_velocity_m_s: 0.046
+      - time_s: 1.4
+        north_velocity_m_s: 1.335
+        east_velocity_m_s: 0.905
+        down_velocity_m_s: 0.031
+      - time_s: 1.6
+        north_velocity_m_s: 1.392
+        east_velocity_m_s: 1.134
+        down_velocity_m_s: -0.012
+      - time_s: 1.8
+        north_velocity_m_s: 1.58
+        east_velocity_m_s: 1.486
+        down_velocity_m_s: -0.017
+      - time_s: 2.0
+        north_velocity_m_s: 1.905
+        east_velocity_m_s: 1.841
+        down_velocity_m_s: -0.027
+      - time_s: 2.2
+        north_velocity_m_s: 2.388
+        east_velocity_m_s: 2.181
+        down_velocity_m_s: -0.038
+      - time_s: 2.4
+        north_velocity_m_s: 2.983
+        east_velocity_m_s: 2.493
+        down_velocity_m_s: -0.027
+      - time_s: 2.6
+        north_velocity_m_s: 3.612
+        east_velocity_m_s: 2.756
+        down_velocity_m_s: -0.021
+      - time_s: 2.8
+        north_velocity_m_s: 4.217
+        east_velocity_m_s: 3.012
+        down_velocity_m_s: -0.006
+      - time_s: 3.0
+        north_velocity_m_s: 4.79
+        east_velocity_m_s: 3.302
+        down_velocity_m_s: 0.01
+      - time_s: 3.2
+        north_velocity_m_s: 5.345
+        east_velocity_m_s: 3.626
+        down_velocity_m_s: 0.012
+      - time_s: 3.4
+        north_velocity_m_s: 5.895
+        east_velocity_m_s: 3.964
+        down_velocity_m_s: 0.003
+      - time_s: 3.6
+        north_velocity_m_s: 6.437
+        east_velocity_m_s: 4.296
+        down_velocity_m_s: 0.012
+      - time_s: 3.8
+        north_velocity_m_s: 6.877
+        east_velocity_m_s: 4.607
+        down_velocity_m_s: 0.047
+      - time_s: 4.0
+        north_velocity_m_s: 7.165
+        east_velocity_m_s: 4.815
+        down_velocity_m_s: 0.071
+      - time_s: 4.2
+        north_velocity_m_s: 7.311
+        east_velocity_m_s: 4.853
+        down_velocity_m_s: 0.077
+      - time_s: 4.4
+        north_velocity_m_s: 7.309
+        east_velocity_m_s: 4.731
+        down_velocity_m_s: 0.071
+      - time_s: 4.6
+        north_velocity_m_s: 7.16
+        east_velocity_m_s: 4.537
+        down_velocity_m_s: 0.062
+      - time_s: 4.8
+        north_velocity_m_s: 6.864
+        east_velocity_m_s: 4.339
+        down_velocity_m_s: 0.05
+      - time_s: 5.0
+        north_velocity_m_s: 6.422
+        east_velocity_m_s: 4.131
+        down_velocity_m_s: 0.036
+      - time_s: 5.2
+        north_velocity_m_s: 5.858
+        east_velocity_m_s: 3.908
+        down_velocity_m_s: 0.035
+      - time_s: 5.4
+        north_velocity_m_s: 5.275
+        east_velocity_m_s: 3.662
+        down_velocity_m_s: 0.033
+      - time_s: 5.6
+        north_velocity_m_s: 4.726
+        east_velocity_m_s: 3.384
+        down_velocity_m_s: 0.029
+      - time_s: 5.8
+        north_velocity_m_s: 4.247
+        east_velocity_m_s: 3.077
+        down_velocity_m_s: 0.021
+      - time_s: 6.0
+        north_velocity_m_s: 3.84
+        east_velocity_m_s: 2.76
+        down_velocity_m_s: 0.011
+      - time_s: 6.2
+        north_velocity_m_s: 3.491
+        east_velocity_m_s: 2.445
+        down_velocity_m_s: -0.001
+      - time_s: 6.4
+        north_velocity_m_s: 3.185
+        east_velocity_m_s: 2.144
+        down_velocity_m_s: -0.008
+      - time_s: 6.6
+        north_velocity_m_s: 2.911
+        east_velocity_m_s: 1.895
+        down_velocity_m_s: -0.011
+      - time_s: 6.8
+        north_velocity_m_s: 2.657
+        east_velocity_m_s: 1.709
+        down_velocity_m_s: -0.013
+      - time_s: 7.0
+        north_velocity_m_s: 2.42
+        east_velocity_m_s: 1.566
+        down_velocity_m_s: -0.012
+      - time_s: 7.2
+        north_velocity_m_s: 2.196
+        east_velocity_m_s: 1.446
+        down_velocity_m_s: -0.012
+      - time_s: 7.4
+        north_velocity_m_s: 1.983
+        east_velocity_m_s: 1.331
+        down_velocity_m_s: -0.012
+      - time_s: 7.6
+        north_velocity_m_s: 1.781
+        east_velocity_m_s: 1.211
+        down_velocity_m_s: -0.013
+      - time_s: 7.8
+        north_velocity_m_s: 1.6
+        east_velocity_m_s: 1.102
+        down_velocity_m_s: -0.013
+      - time_s: 7.912
+        north_velocity_m_s: 1.542
+        east_velocity_m_s: 1.079
+        down_velocity_m_s: -0.016
       horizontal_speed_m_s: 4.452
     - north_m: -8.173
       east_m: 24.572
@@ -266,6 +560,151 @@ mission:
         yaw_deg: 111.36
       - time_s: 6.904
         yaw_deg: 112.109
+      velocity_setpoints:
+      - time_s: 0.0
+        north_velocity_m_s: 1.542
+        east_velocity_m_s: 1.079
+        down_velocity_m_s: -0.016
+      - time_s: 0.2
+        north_velocity_m_s: 1.505
+        east_velocity_m_s: 1.078
+        down_velocity_m_s: -0.03
+      - time_s: 0.4
+        north_velocity_m_s: 1.363
+        east_velocity_m_s: 1.172
+        down_velocity_m_s: -0.067
+      - time_s: 0.6
+        north_velocity_m_s: 1.025
+        east_velocity_m_s: 1.324
+        down_velocity_m_s: -0.069
+      - time_s: 0.8
+        north_velocity_m_s: 0.535
+        east_velocity_m_s: 1.436
+        down_velocity_m_s: -0.052
+      - time_s: 1.0
+        north_velocity_m_s: -0.014
+        east_velocity_m_s: 1.527
+        down_velocity_m_s: -0.002
+      - time_s: 1.2
+        north_velocity_m_s: -0.446
+        east_velocity_m_s: 1.631
+        down_velocity_m_s: 0.021
+      - time_s: 1.4
+        north_velocity_m_s: -0.712
+        east_velocity_m_s: 1.704
+        down_velocity_m_s: 0.01
+      - time_s: 1.6
+        north_velocity_m_s: -0.919
+        east_velocity_m_s: 1.857
+        down_velocity_m_s: -0.019
+      - time_s: 1.8
+        north_velocity_m_s: -1.146
+        east_velocity_m_s: 2.176
+        down_velocity_m_s: -0.041
+      - time_s: 2.0
+        north_velocity_m_s: -1.366
+        east_velocity_m_s: 2.667
+        down_velocity_m_s: -0.069
+      - time_s: 2.2
+        north_velocity_m_s: -1.538
+        east_velocity_m_s: 3.278
+        down_velocity_m_s: -0.059
+      - time_s: 2.4
+        north_velocity_m_s: -1.695
+        east_velocity_m_s: 3.888
+        down_velocity_m_s: -0.031
+      - time_s: 2.6
+        north_velocity_m_s: -1.879
+        east_velocity_m_s: 4.475
+        down_velocity_m_s: -0.014
+      - time_s: 2.8
+        north_velocity_m_s: -2.091
+        east_velocity_m_s: 5.05
+        down_velocity_m_s: -0.014
+      - time_s: 3.0
+        north_velocity_m_s: -2.313
+        east_velocity_m_s: 5.619
+        down_velocity_m_s: -0.019
+      - time_s: 3.2
+        north_velocity_m_s: -2.526
+        east_velocity_m_s: 6.132
+        down_velocity_m_s: 0.008
+      - time_s: 3.4
+        north_velocity_m_s: -2.693
+        east_velocity_m_s: 6.5
+        down_velocity_m_s: 0.035
+      - time_s: 3.6
+        north_velocity_m_s: -2.706
+        east_velocity_m_s: 6.716
+        down_velocity_m_s: 0.042
+      - time_s: 3.8
+        north_velocity_m_s: -2.606
+        east_velocity_m_s: 6.783
+        down_velocity_m_s: 0.04
+      - time_s: 4.0
+        north_velocity_m_s: -2.496
+        east_velocity_m_s: 6.695
+        down_velocity_m_s: 0.034
+      - time_s: 4.2
+        north_velocity_m_s: -2.387
+        east_velocity_m_s: 6.454
+        down_velocity_m_s: 0.025
+      - time_s: 4.4
+        north_velocity_m_s: -2.274
+        east_velocity_m_s: 6.065
+        down_velocity_m_s: 0.016
+      - time_s: 4.6
+        north_velocity_m_s: -2.158
+        east_velocity_m_s: 5.532
+        down_velocity_m_s: 0.01
+      - time_s: 4.8
+        north_velocity_m_s: -2.035
+        east_velocity_m_s: 4.939
+        down_velocity_m_s: 0.018
+      - time_s: 5.0
+        north_velocity_m_s: -1.893
+        east_velocity_m_s: 4.362
+        down_velocity_m_s: 0.016
+      - time_s: 5.2
+        north_velocity_m_s: -1.734
+        east_velocity_m_s: 3.817
+        down_velocity_m_s: 0.012
+      - time_s: 5.4
+        north_velocity_m_s: -1.557
+        east_velocity_m_s: 3.341
+        down_velocity_m_s: 0.005
+      - time_s: 5.6
+        north_velocity_m_s: -1.363
+        east_velocity_m_s: 2.942
+        down_velocity_m_s: -0.005
+      - time_s: 5.8
+        north_velocity_m_s: -1.166
+        east_velocity_m_s: 2.607
+        down_velocity_m_s: -0.013
+      - time_s: 6.0
+        north_velocity_m_s: -0.972
+        east_velocity_m_s: 2.321
+        down_velocity_m_s: -0.019
+      - time_s: 6.2
+        north_velocity_m_s: -0.779
+        east_velocity_m_s: 2.075
+        down_velocity_m_s: -0.023
+      - time_s: 6.4
+        north_velocity_m_s: -0.61
+        east_velocity_m_s: 1.862
+        down_velocity_m_s: -0.023
+      - time_s: 6.6
+        north_velocity_m_s: -0.521
+        east_velocity_m_s: 1.669
+        down_velocity_m_s: -0.022
+      - time_s: 6.8
+        north_velocity_m_s: -0.485
+        east_velocity_m_s: 1.484
+        down_velocity_m_s: -0.02
+      - time_s: 6.904
+        north_velocity_m_s: -0.469
+        east_velocity_m_s: 1.391
+        down_velocity_m_s: -0.018
       horizontal_speed_m_s: 3.861
     - north_m: -0.769
       east_m: 1.756
@@ -357,6 +796,167 @@ mission:
         yaw_deg: 113.558
       - time_s: 7.8
         yaw_deg: 113.557
+      velocity_setpoints:
+      - time_s: 0.0
+        north_velocity_m_s: -0.469
+        east_velocity_m_s: 1.391
+        down_velocity_m_s: -0.018
+      - time_s: 0.2
+        north_velocity_m_s: -0.433
+        east_velocity_m_s: 1.217
+        down_velocity_m_s: -0.013
+      - time_s: 0.4
+        north_velocity_m_s: -0.397
+        east_velocity_m_s: 1.052
+        down_velocity_m_s: -0.009
+      - time_s: 0.6
+        north_velocity_m_s: -0.357
+        east_velocity_m_s: 0.898
+        down_velocity_m_s: -0.008
+      - time_s: 0.8
+        north_velocity_m_s: -0.312
+        east_velocity_m_s: 0.755
+        down_velocity_m_s: -0.006
+      - time_s: 1.0
+        north_velocity_m_s: -0.262
+        east_velocity_m_s: 0.624
+        down_velocity_m_s: -0.003
+      - time_s: 1.2
+        north_velocity_m_s: -0.22
+        east_velocity_m_s: 0.507
+        down_velocity_m_s: 0.001
+      - time_s: 1.4
+        north_velocity_m_s: -0.183
+        east_velocity_m_s: 0.404
+        down_velocity_m_s: 0.0
+      - time_s: 1.6
+        north_velocity_m_s: -0.145
+        east_velocity_m_s: 0.316
+        down_velocity_m_s: 0.0
+      - time_s: 1.8
+        north_velocity_m_s: -0.117
+        east_velocity_m_s: 0.243
+        down_velocity_m_s: 0.004
+      - time_s: 2.0
+        north_velocity_m_s: -0.091
+        east_velocity_m_s: 0.181
+        down_velocity_m_s: 0.009
+      - time_s: 2.2
+        north_velocity_m_s: -0.06
+        east_velocity_m_s: 0.128
+        down_velocity_m_s: 0.013
+      - time_s: 2.4
+        north_velocity_m_s: -0.036
+        east_velocity_m_s: 0.082
+        down_velocity_m_s: 0.017
+      - time_s: 2.6
+        north_velocity_m_s: -0.02
+        east_velocity_m_s: 0.043
+        down_velocity_m_s: 0.019
+      - time_s: 2.8
+        north_velocity_m_s: -0.007
+        east_velocity_m_s: 0.014
+        down_velocity_m_s: 0.02
+      - time_s: 3.0
+        north_velocity_m_s: 0.001
+        east_velocity_m_s: -0.008
+        down_velocity_m_s: 0.02
+      - time_s: 3.2
+        north_velocity_m_s: 0.009
+        east_velocity_m_s: -0.022
+        down_velocity_m_s: 0.015
+      - time_s: 3.4
+        north_velocity_m_s: 0.014
+        east_velocity_m_s: -0.031
+        down_velocity_m_s: 0.01
+      - time_s: 3.6
+        north_velocity_m_s: 0.018
+        east_velocity_m_s: -0.035
+        down_velocity_m_s: 0.005
+      - time_s: 3.8
+        north_velocity_m_s: 0.023
+        east_velocity_m_s: -0.033
+        down_velocity_m_s: 0.004
+      - time_s: 4.0
+        north_velocity_m_s: 0.028
+        east_velocity_m_s: -0.027
+        down_velocity_m_s: 0.004
+      - time_s: 4.2
+        north_velocity_m_s: 0.03
+        east_velocity_m_s: -0.02
+        down_velocity_m_s: 0.004
+      - time_s: 4.4
+        north_velocity_m_s: 0.034
+        east_velocity_m_s: -0.012
+        down_velocity_m_s: 0.004
+      - time_s: 4.6
+        north_velocity_m_s: 0.038
+        east_velocity_m_s: -0.003
+        down_velocity_m_s: 0.002
+      - time_s: 4.8
+        north_velocity_m_s: 0.038
+        east_velocity_m_s: 0.004
+        down_velocity_m_s: -0.0
+      - time_s: 5.0
+        north_velocity_m_s: 0.033
+        east_velocity_m_s: 0.011
+        down_velocity_m_s: -0.001
+      - time_s: 5.2
+        north_velocity_m_s: 0.024
+        east_velocity_m_s: 0.019
+        down_velocity_m_s: 0.0
+      - time_s: 5.4
+        north_velocity_m_s: 0.017
+        east_velocity_m_s: 0.028
+        down_velocity_m_s: 0.003
+      - time_s: 5.6
+        north_velocity_m_s: 0.013
+        east_velocity_m_s: 0.033
+        down_velocity_m_s: 0.005
+      - time_s: 5.8
+        north_velocity_m_s: 0.015
+        east_velocity_m_s: 0.034
+        down_velocity_m_s: 0.004
+      - time_s: 6.0
+        north_velocity_m_s: 0.019
+        east_velocity_m_s: 0.034
+        down_velocity_m_s: 0.001
+      - time_s: 6.2
+        north_velocity_m_s: 0.02
+        east_velocity_m_s: 0.034
+        down_velocity_m_s: -0.003
+      - time_s: 6.4
+        north_velocity_m_s: 0.022
+        east_velocity_m_s: 0.036
+        down_velocity_m_s: -0.005
+      - time_s: 6.6
+        north_velocity_m_s: 0.022
+        east_velocity_m_s: 0.04
+        down_velocity_m_s: -0.006
+      - time_s: 6.8
+        north_velocity_m_s: 0.02
+        east_velocity_m_s: 0.045
+        down_velocity_m_s: -0.005
+      - time_s: 7.0
+        north_velocity_m_s: 0.019
+        east_velocity_m_s: 0.046
+        down_velocity_m_s: -0.003
+      - time_s: 7.2
+        north_velocity_m_s: 0.016
+        east_velocity_m_s: 0.045
+        down_velocity_m_s: -0.0
+      - time_s: 7.4
+        north_velocity_m_s: 0.011
+        east_velocity_m_s: 0.042
+        down_velocity_m_s: 0.001
+      - time_s: 7.6
+        north_velocity_m_s: 0.007
+        east_velocity_m_s: 0.037
+        down_velocity_m_s: 0.002
+      - time_s: 7.8
+        north_velocity_m_s: 0.004
+        east_velocity_m_s: 0.032
+        down_velocity_m_s: 0.005
       horizontal_speed_m_s: 0.222
 paths:
   px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log

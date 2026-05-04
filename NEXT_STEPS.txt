@@ -125,6 +125,44 @@ Son Yapilan Is
     raporu sorunun ozellikle 3. leg'de buyudugunu gosteriyor; siradaki teknik
     odak yaw setpoint'i pozisyon/hiz profiliyle birlikte faz hizalamak veya
     MAVSDK Mission waypoint hiz/yaw semasini denemek olmali.
+- Kullanici ekran goruntusunde platformun son noktaya gelmeden inise gectigini,
+  ilk noktaya giderken 14 m/s hiz gordugunu ve gorev noktalarinda Hold/Offboard
+  gecisleri oldugunu belirtti.
+  - Kok neden: run_mission.py coklu leg'lerde her leg sonunda offboard.stop()
+    cagirip sonraki leg'de offboard.start() yapiyordu. Bu, PX4 tarafinda
+    Hold/Offboard gecisi gibi gorunuyor ve waypoint akisini bozabiliyordu.
+  - scripts/run_mission.py coklu motion leg'lerde artik Offboard'u tek kez
+    baslatip tum leg'leri ayni Offboard oturumunda arka arkaya replay ediyor.
+  - scripts/profile_real_log.py real logdaki vehicle_local_position
+    vx/vy/vz serisinden her leg icin velocity_setpoints uretiyor.
+  - scenarios/generated_qgc_sitl_02.yaml yeniden uretildi; her leg artik
+    yaw_setpoints ile birlikte velocity_setpoints de iceriyor.
+  - Yeni velocity+yaw zaman serili scenario SITL'de calistirildi:
+    RUN_ID=20260504_173834
+    bash run.sh scenarios/generated_qgc_sitl_02.yaml
+  - Run artifact klasoru:
+    results/runs/20260504_173834/
+  - SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=20.0, max_altitude_m=20.407198,
+    final_altitude_m=0.012176, max_altitude_error_m=0.407198,
+    hover_altitude_rmse_m=0.948646, landing_duration_s=48.584,
+    duration_s=74.000.
+  - Sim logda max yatay hiz 8.627496 m/s; real QGC 02 logunda max yatay hiz
+    8.777577 m/s. Bu kosuda 10 m/s uzerinde hiz komutu veya 14 m/s piki
+    gorulmedi.
+  - Takeoff-aligned compare sonucu halen overall_pass=false ama yaw belirgin
+    iyilesti:
+    altitude_rmse=0.626117, velocity_rmse=1.165153,
+    roll_rmse=3.683325, pitch_rmse=5.874832,
+    yaw_rmse=17.665576,
+    yaw_heading_normalized_rmse=17.561005.
+  - Motion leg yaw RMSE:
+    leg1=22.822701, leg2=20.304834, leg3=23.848960, leg4=1.638150.
+  - Onceki yalniz yaw_setpoints kosusuna gore:
+    yaw_rmse 30.254980 -> 17.665576,
+    yaw_heading_normalized_rmse 28.876858 -> 17.561005,
+    leg3 yaw_rmse 75.924993 -> 23.848960.
 
 Siradaki Yapilacaklar
 ---------------------
@@ -143,6 +181,11 @@ Kontrol Sonucu
 - Motion leg icinde yaw'u daha sik orneklenmis zaman serisiyle replay etme:
   Yapildi. yaw_setpoints schema'si eklendi, QGC 02 scenario yeniden uretildi
   ve SITL/compare kosusu alindi.
+- Real logdaki anlik velocity serisini senaryoya replay etme: Yapildi.
+  vehicle_local_position vx/vy/vz alanlarindan velocity_setpoints uretiliyor
+  ve run_mission.py bunlari Offboard NED velocity olarak replay ediyor.
+- Coklu motion leg'lerde Offboard/Hold gecisini engelleme: Yapildi.
+  run_mission.py artik legs listesini tek Offboard oturumunda yurutuyor.
 - Motion leg segmentlerini compare_logs.py icinde ayri raporlama: Yapildi.
   metrics JSON ve report_comparison Markdown/CSV ciktilari motion_leg_N
   satirlarini iceriyor.
@@ -156,12 +199,12 @@ Kontrol Sonucu
 - Ayni filtrelerle 3-5 adaylik public log seti indirip batch compare raporu
   uretme: Yapilmadi; kontrollu referans log akisi nedeniyle dusuk oncelik.
 
-1. Motion leg 3 icin yaw/velocity faz farkini incele
-    - Yeni motion_leg raporu leg3 yaw_rmse=75.924993 ve
-      velocity_rmse=4.199864 gosteriyor.
-    - Yaw setpoint serisi tek basina yeterli olmadi; hiz/pozisyon profili ile
-      yaw setpoint zamanlamasi birlikte hizalanmali.
-    - Hedef: leg3 kaynakli yaw_heading_normalized_rmse artisini azaltmak.
+1. Velocity+yaw replay icin kalan pitch/velocity farkini incele
+    - Yeni velocity+yaw replay leg3 yaw sorununu buyuk olcude azaltti.
+    - Global compare halen fail; hover_cruise velocity_rmse=1.124350,
+      pitch_rmse=5.871373 ve global pitch_rmse=5.874832.
+    - Hedef: hiz profilinin PX4 ic kontrolunde olusturdugu pitch farkini
+      azaltmak.
 
 2. MAVSDK Mission waypoint hiz/yaw semasini dene
     - Offboard velocity replay yerine QGC referans akisini daha dogrudan temsil

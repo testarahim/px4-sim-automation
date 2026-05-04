@@ -271,6 +271,10 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
         profile.get("yaw_setpoints"),
         path=f"{path}.yaw_setpoints",
     )
+    velocity_setpoints = load_velocity_setpoints(
+        profile.get("velocity_setpoints"),
+        path=f"{path}.velocity_setpoints",
+    )
 
     return {
         "mode": mode,
@@ -310,6 +314,7 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
             path=path,
         ),
         "yaw_setpoints": yaw_setpoints,
+        "velocity_setpoints": velocity_setpoints,
         "timeout": get_optional_number(
             profile,
             "timeout",
@@ -327,18 +332,41 @@ def load_motion_profile_leg(profile, path, mode="offboard_ned"):
     }
 
 
+def load_time_ordered_setpoints(setpoints, path):
+    if setpoints is None:
+        return []
+    if not isinstance(setpoints, list):
+        raise ValueError(f"Config value must be a list: {path}")
+
+    previous_time_s = None
+    for index, setpoint in enumerate(setpoints):
+        setpoint_path = f"{path}[{index}]"
+        if not isinstance(setpoint, dict):
+            raise ValueError(f"Config value must be a mapping: {setpoint_path}")
+        time_s = get_nullable_number(
+            setpoint,
+            "time_s",
+            None,
+            non_negative=True,
+            path=setpoint_path,
+        )
+        if time_s is None:
+            raise ValueError(f"{setpoint_path} requires time_s")
+        if previous_time_s is not None and time_s <= previous_time_s:
+            raise ValueError(f"{path} time_s values must be strictly increasing")
+        previous_time_s = time_s
+
+
 def load_yaw_setpoints(setpoints, path):
     if setpoints is None:
         return []
     if not isinstance(setpoints, list):
         raise ValueError(f"Config value must be a list: {path}")
 
+    load_time_ordered_setpoints(setpoints, path)
     resolved = []
-    previous_time_s = None
     for index, setpoint in enumerate(setpoints):
         setpoint_path = f"{path}[{index}]"
-        if not isinstance(setpoint, dict):
-            raise ValueError(f"Config value must be a mapping: {setpoint_path}")
         time_s = get_nullable_number(
             setpoint,
             "time_s",
@@ -354,10 +382,63 @@ def load_yaw_setpoints(setpoints, path):
         )
         if time_s is None or yaw_deg is None:
             raise ValueError(f"{setpoint_path} requires time_s and yaw_deg")
-        if previous_time_s is not None and time_s <= previous_time_s:
-            raise ValueError(f"{path} time_s values must be strictly increasing")
-        previous_time_s = time_s
         resolved.append({"time_s": time_s, "yaw_deg": yaw_deg})
+    return resolved
+
+
+def load_velocity_setpoints(setpoints, path):
+    if setpoints is None:
+        return []
+    if not isinstance(setpoints, list):
+        raise ValueError(f"Config value must be a list: {path}")
+
+    load_time_ordered_setpoints(setpoints, path)
+    resolved = []
+    for index, setpoint in enumerate(setpoints):
+        setpoint_path = f"{path}[{index}]"
+        time_s = get_nullable_number(
+            setpoint,
+            "time_s",
+            None,
+            non_negative=True,
+            path=setpoint_path,
+        )
+        north_velocity_m_s = get_nullable_number(
+            setpoint,
+            "north_velocity_m_s",
+            None,
+            path=setpoint_path,
+        )
+        east_velocity_m_s = get_nullable_number(
+            setpoint,
+            "east_velocity_m_s",
+            None,
+            path=setpoint_path,
+        )
+        down_velocity_m_s = get_nullable_number(
+            setpoint,
+            "down_velocity_m_s",
+            None,
+            path=setpoint_path,
+        )
+        if (
+            time_s is None
+            or north_velocity_m_s is None
+            or east_velocity_m_s is None
+            or down_velocity_m_s is None
+        ):
+            raise ValueError(
+                f"{setpoint_path} requires time_s, north_velocity_m_s, "
+                "east_velocity_m_s, and down_velocity_m_s"
+            )
+        resolved.append(
+            {
+                "time_s": time_s,
+                "north_velocity_m_s": north_velocity_m_s,
+                "east_velocity_m_s": east_velocity_m_s,
+                "down_velocity_m_s": down_velocity_m_s,
+            }
+        )
     return resolved
 
 
@@ -381,6 +462,48 @@ def interpolated_yaw_from_setpoints(yaw_setpoints, elapsed_s):
         ) * progress
 
     return yaw_setpoints[-1]["yaw_deg"]
+
+
+def interpolated_velocity_from_setpoints(velocity_setpoints, elapsed_s):
+    if not velocity_setpoints:
+        return None
+    if elapsed_s <= velocity_setpoints[0]["time_s"]:
+        return velocity_setpoints[0]
+    if elapsed_s >= velocity_setpoints[-1]["time_s"]:
+        return velocity_setpoints[-1]
+
+    for previous_setpoint, next_setpoint in zip(
+        velocity_setpoints,
+        velocity_setpoints[1:],
+    ):
+        if elapsed_s > next_setpoint["time_s"]:
+            continue
+        duration_s = next_setpoint["time_s"] - previous_setpoint["time_s"]
+        if duration_s <= 0:
+            return next_setpoint
+        progress = (elapsed_s - previous_setpoint["time_s"]) / duration_s
+        return {
+            "north_velocity_m_s": previous_setpoint["north_velocity_m_s"]
+            + (
+                next_setpoint["north_velocity_m_s"]
+                - previous_setpoint["north_velocity_m_s"]
+            )
+            * progress,
+            "east_velocity_m_s": previous_setpoint["east_velocity_m_s"]
+            + (
+                next_setpoint["east_velocity_m_s"]
+                - previous_setpoint["east_velocity_m_s"]
+            )
+            * progress,
+            "down_velocity_m_s": previous_setpoint["down_velocity_m_s"]
+            + (
+                next_setpoint["down_velocity_m_s"]
+                - previous_setpoint["down_velocity_m_s"]
+            )
+            * progress,
+        }
+
+    return velocity_setpoints[-1]
 
 
 async def wait_until_connected(drone, timeout):
@@ -637,6 +760,19 @@ async def run_offboard_ned_motion_profile(drone, profile):
 
     def setpoint():
         elapsed = asyncio.get_running_loop().time() - start_time
+        velocity = interpolated_velocity_from_setpoints(
+            profile.get("velocity_setpoints", []),
+            elapsed,
+        )
+        if velocity is None:
+            current_north_velocity_m_s = north_velocity_m_s
+            current_east_velocity_m_s = east_velocity_m_s
+            current_down_velocity_m_s = down_velocity_m_s
+        else:
+            current_north_velocity_m_s = velocity["north_velocity_m_s"]
+            current_east_velocity_m_s = velocity["east_velocity_m_s"]
+            current_down_velocity_m_s = velocity["down_velocity_m_s"]
+
         yaw_start_deg = profile.get("yaw_start_deg")
         yaw_end_deg = profile.get("yaw_end_deg")
         yaw_deg = interpolated_yaw_from_setpoints(
@@ -651,9 +787,9 @@ async def run_offboard_ned_motion_profile(drone, profile):
         if yaw_deg is None:
             yaw_deg = profile["yaw_rate_deg_s"] * elapsed
         return VelocityNedYaw(
-            north_velocity_m_s,
-            east_velocity_m_s,
-            down_velocity_m_s,
+            current_north_velocity_m_s,
+            current_east_velocity_m_s,
+            current_down_velocity_m_s,
             yaw_deg,
         )
 
@@ -689,12 +825,106 @@ async def run_offboard_ned_motion_profile(drone, profile):
             report_event("offboard stop warning", str(exc))
 
 
+async def run_offboard_ned_motion_legs(drone, legs):
+    position = await get_current_position(
+        drone,
+        timeout=min(legs[0]["timeout"], 10.0),
+        description="motion profile start position",
+    )
+    current_altitude_m = position.relative_altitude_m
+    leg_states = []
+    for leg in legs:
+        duration_s = leg["duration_s"]
+        target_altitude_m = leg["target_altitude_m"]
+        down_velocity_m_s = 0.0
+        if target_altitude_m is not None:
+            down_velocity_m_s = (current_altitude_m - target_altitude_m) / duration_s
+            current_altitude_m = target_altitude_m
+        leg_states.append(
+            {
+                "leg": leg,
+                "north_velocity_m_s": leg["north_m"] / duration_s,
+                "east_velocity_m_s": leg["east_m"] / duration_s,
+                "down_velocity_m_s": down_velocity_m_s,
+            }
+        )
+
+    def setpoint_for_leg(leg_state, elapsed):
+        leg = leg_state["leg"]
+        velocity = interpolated_velocity_from_setpoints(
+            leg.get("velocity_setpoints", []),
+            elapsed,
+        )
+        if velocity is None:
+            north_velocity_m_s = leg_state["north_velocity_m_s"]
+            east_velocity_m_s = leg_state["east_velocity_m_s"]
+            down_velocity_m_s = leg_state["down_velocity_m_s"]
+        else:
+            north_velocity_m_s = velocity["north_velocity_m_s"]
+            east_velocity_m_s = velocity["east_velocity_m_s"]
+            down_velocity_m_s = velocity["down_velocity_m_s"]
+
+        yaw_deg = interpolated_yaw_from_setpoints(
+            leg.get("yaw_setpoints", []),
+            elapsed,
+        )
+        yaw_start_deg = leg.get("yaw_start_deg")
+        yaw_end_deg = leg.get("yaw_end_deg")
+        if yaw_deg is None and yaw_start_deg is not None and yaw_end_deg is not None:
+            progress = min(1.0, max(0.0, elapsed / leg["duration_s"]))
+            yaw_deg = yaw_start_deg + (yaw_end_deg - yaw_start_deg) * progress
+        elif yaw_deg is None:
+            yaw_deg = leg["yaw_deg"]
+        if yaw_deg is None:
+            yaw_deg = leg["yaw_rate_deg_s"] * elapsed
+
+        return VelocityNedYaw(
+            north_velocity_m_s,
+            east_velocity_m_s,
+            down_velocity_m_s,
+            yaw_deg,
+        )
+
+    await drone.offboard.set_velocity_ned(setpoint_for_leg(leg_states[0], 0.0))
+    try:
+        await drone.offboard.start()
+    except OffboardError as exc:
+        raise RuntimeError(f"Offboard motion profile failed to start: {exc}") from exc
+
+    report_event("offboard motion profile started", f"{len(legs)} continuous legs")
+    try:
+        for index, leg_state in enumerate(leg_states, start=1):
+            leg = leg_state["leg"]
+            duration_s = leg["duration_s"]
+            interval = leg["setpoint_interval_s"]
+            start_time = asyncio.get_running_loop().time()
+            deadline = start_time + leg["timeout"]
+            report_event("offboard motion leg", f"{index}/{len(legs)}")
+            while True:
+                elapsed = asyncio.get_running_loop().time() - start_time
+                await drone.offboard.set_velocity_ned(
+                    setpoint_for_leg(leg_state, elapsed)
+                )
+                if elapsed >= duration_s:
+                    report_event(
+                        "offboard motion leg complete",
+                        f"{index}/{len(legs)} {elapsed:.1f} s",
+                    )
+                    break
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise TimeoutError("Timed out waiting for offboard motion profile")
+                await asyncio.sleep(interval)
+    finally:
+        try:
+            await drone.offboard.stop()
+        except OffboardError as exc:
+            report_event("offboard stop warning", str(exc))
+
+
 async def execute_motion(drone, motion_profile):
     if motion_profile["mode"] == "offboard_ned":
         if "legs" in motion_profile:
-            for index, leg in enumerate(motion_profile["legs"], start=1):
-                report_event("offboard motion leg", f"{index}/{len(motion_profile['legs'])}")
-                await run_offboard_ned_motion_profile(drone, leg)
+            await run_offboard_ned_motion_legs(drone, motion_profile["legs"])
         else:
             await run_offboard_ned_motion_profile(drone, motion_profile)
 

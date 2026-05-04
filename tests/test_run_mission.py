@@ -240,6 +240,42 @@ class RunMissionConfigTests(unittest.TestCase):
             30.0,
         )
 
+    def test_motion_profile_loads_velocity_setpoints(self):
+        profile = run_mission.load_motion_profile(
+            {
+                "mission": {
+                    "motion_profile": {
+                        "mode": "offboard_ned",
+                        "north_m": 4.0,
+                        "duration_s": 2.0,
+                        "velocity_setpoints": [
+                            {
+                                "time_s": 0.0,
+                                "north_velocity_m_s": 1.0,
+                                "east_velocity_m_s": 2.0,
+                                "down_velocity_m_s": 0.0,
+                            },
+                            {
+                                "time_s": 2.0,
+                                "north_velocity_m_s": 3.0,
+                                "east_velocity_m_s": 4.0,
+                                "down_velocity_m_s": -0.2,
+                            },
+                        ],
+                    }
+                }
+            }
+        )
+
+        velocity = run_mission.interpolated_velocity_from_setpoints(
+            profile["velocity_setpoints"],
+            1.0,
+        )
+
+        self.assertEqual(velocity["north_velocity_m_s"], 2.0)
+        self.assertEqual(velocity["east_velocity_m_s"], 3.0)
+        self.assertEqual(velocity["down_velocity_m_s"], -0.1)
+
     def test_motion_profile_rejects_unsorted_yaw_setpoints(self):
         with self.assertRaises(ValueError):
             run_mission.load_motion_profile(
