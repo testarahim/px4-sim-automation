@@ -35,6 +35,9 @@ the work.
 bash setup.sh
 ```
 
+If setup or SITL startup fails, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+for known errors and recovery steps.
+
 If PX4 is not installed at `~/PX4-Autopilot`, set `PX4_DIR` when running the
 pipeline:
 
