@@ -176,6 +176,34 @@ class RunMissionConfigTests(unittest.TestCase):
         self.assertEqual(profile["duration_s"], 2.0)
         self.assertEqual(profile["horizontal_speed_m_s"], 2.5)
 
+    def test_motion_profile_loads_multiple_legs(self):
+        profile = run_mission.load_motion_profile(
+            {
+                "mission": {
+                    "motion_profile": {
+                        "mode": "offboard_ned",
+                        "legs": [
+                            {
+                                "north_m": 10.0,
+                                "east_m": -5.0,
+                                "duration_s": 4.0,
+                            },
+                            {
+                                "north_m": 0.0,
+                                "east_m": 0.0,
+                                "duration_s": 2.0,
+                            },
+                        ],
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(profile["mode"], "offboard_ned")
+        self.assertEqual(len(profile["legs"]), 2)
+        self.assertEqual(profile["legs"][0]["north_m"], 10.0)
+        self.assertEqual(profile["legs"][1]["duration_s"], 2.0)
+
     def test_motion_profile_rejects_missing_duration_and_speed(self):
         with self.assertRaises(ValueError):
             run_mission.load_motion_profile(

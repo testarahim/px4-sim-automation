@@ -8,21 +8,46 @@ connection:
   arm_timeout: 20
 mission:
   takeoff_altitude: 20.0
-  hover_time: 17.1
+  hover_time: 1.0
   takeoff_timeout: 20
   climb_timeout: 60
   altitude_tolerance: 1.2
   landing_timeout: 80
   motion_profile:
     mode: offboard_ned
-    north_m: 31.195
-    east_m: 22.916
-    target_altitude_m: 20.0
-    horizontal_speed_m_s: 2.863
-    yaw_rate_deg_s: 0.0
-    duration_s: 13.5
-    timeout: 28.5
-    setpoint_interval_s: 0.2
+    legs:
+    - north_m: 11.087
+      east_m: -21.169
+      target_altitude_m: 19.8
+      duration_s: 6.1
+      yaw_rate_deg_s: 0.0
+      timeout: 21.1
+      setpoint_interval_s: 0.2
+      horizontal_speed_m_s: 3.942
+    - north_m: 29.057
+      east_m: 17.761
+      target_altitude_m: 20.0
+      duration_s: 7.9
+      yaw_rate_deg_s: 0.0
+      timeout: 22.9
+      setpoint_interval_s: 0.2
+      horizontal_speed_m_s: 4.452
+    - north_m: -8.173
+      east_m: 24.572
+      target_altitude_m: 20.0
+      duration_s: 6.9
+      yaw_rate_deg_s: 0.0
+      timeout: 21.9
+      setpoint_interval_s: 0.2
+      horizontal_speed_m_s: 3.861
+    - north_m: -0.769
+      east_m: 1.756
+      target_altitude_m: 20.0
+      duration_s: 7.8
+      yaw_rate_deg_s: 0.0
+      timeout: 22.8
+      setpoint_interval_s: 0.2
+      horizontal_speed_m_s: 0.222
 paths:
   px4_log_dir: ~/PX4-Autopilot/build/px4_sitl_default/rootfs/log
 thresholds:

@@ -255,7 +255,8 @@ Scenario YAML files define:
 - Mission takeoff altitude, hover time, and landing timeout
 - Optional `mission.px4_parameters` values to apply before arming
 - Optional `mission.motion_profile` settings for Offboard NED displacement
-  after takeoff/hover and before landing
+  after takeoff/hover and before landing, including multi-leg waypoint-like
+  motion profiles
 - Optional `mission.landing_profile` settings for Offboard NED/body-frame
   horizontal/descent/yaw-rate landing profiles
 - Pass/fail thresholds

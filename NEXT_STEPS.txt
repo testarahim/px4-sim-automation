@@ -77,6 +77,65 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
+- QGC mission logundaki waypoint bacaklari korunarak scenario uretimi
+  iyilestirildi.
+  - Kullanici screenshot'i QGC icindeki mission'in 4 -> 5 -> 6 -> Land
+    seklinde cok noktali oldugunu gosterdi. Onceki scenario bu yolu tek
+    displacement vektoru olarak temsil ettigi icin ara noktalar kayboluyordu.
+  - scripts/profile_real_log.py artik mission_result seq_current/seq_reached
+    gecislerinden mission_legs cikariyor.
+  - scripts/run_mission.py artik mission.motion_profile.legs listesini
+    destekliyor ve her leg'i sirayla Offboard NED profili olarak calistiriyor.
+  - Profil JSON'a attitude_summary eklendi:
+    roll/pitch/yaw baslangic-bitis, min/max, mutlak ortalama ve
+    yaw_rate_abs_mean_deg_s.
+  - Her t anindaki attitude serisi artifact olarak cikarildi:
+    results/real_profiles/qgc_sitl_02_attitude_timeseries.csv
+    Alanlar: time_s, roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg,
+    yaw_rate_deg_s.
+  - scenarios/generated_qgc_sitl_02.yaml yeniden uretildi; artik tek vektor
+    yerine 4 motion leg iceriyor:
+    1) north=11.087, east=-21.169, duration=6.1s
+    2) north=29.057, east=17.761, duration=7.9s
+    3) north=-8.173, east=24.572, duration=6.9s
+    4) north=-0.769, east=1.756, duration=7.8s
+  - Cok bacakli scenario SITL'de calistirildi:
+    RUN_ID=qgc_sitl_02_waypoint_generated_20260504_01
+    bash run.sh scenarios/generated_qgc_sitl_02.yaml
+  - Run artifact klasoru:
+    results/runs/qgc_sitl_02_waypoint_generated_20260504_01/
+  - SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=20.0, max_altitude_m=20.138313,
+    final_altitude_m=-0.025225, max_altitude_error_m=0.138313,
+    hover_altitude_rmse_m=0.956607, landing_duration_s=48.072,
+    duration_s=74.000.
+  - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
+    results/comparisons/qgc_sitl_02_waypoint_takeoff_aligned_metrics.json
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=0.439053, velocity_rmse=1.175546,
+    roll_rmse=3.877123, pitch_rmse=6.869666,
+    yaw_rmse=83.789250,
+    yaw_heading_normalized_rmse=59.543933.
+  - Onceki tek-vektor QGC 02 compare'a gore velocity_rmse
+    2.484274 -> 1.175546 iyilesti.
+  - Segment sonuclari:
+    takeoff_climb altitude_rmse=0.053418,
+    hover_cruise altitude_rmse=0.082935,
+    landing altitude_rmse=0.025271.
+    hover_cruise sim horizontal_speed_mean_mps=2.776,
+    real horizontal_speed_mean_mps=2.827.
+  - Kalan ana fark yaw/heading profilinde:
+    hover_cruise sim yaw_rate_abs_mean_deg_s=5.564,
+    real yaw_rate_abs_mean_deg_s=14.641.
+  - Yorum: Ara waypoint bacaklarini korumak path/hiz eslesmesini belirgin
+    iyilestirdi. Neredeyse birebir ciktiya yaklasmak icin siradaki adim
+    mission leg bazinda yaw_deg/yaw_rate_deg_s hedeflerini real attitude
+    zaman serisinden cikarmak ve compare_logs.py icinde motion leg segmentlerini
+    ayri raporlamak olmali. Roll/pitch PX4 multicopter'de dogrudan mission
+    komutu olarak verilmemeli; hiz/yaw/setpoint profili dogru kuruldukca
+    autopilot roll/pitch cevabi metriklerle dogrulanmali.
+
 - Ikinci kontrollu QGroundControl SITL logu analiz edildi ve sim-real
   karsilastirmasi icin scenario uretildi.
   - Yeni referans log PX4 rootfs'ten kopyalandi:

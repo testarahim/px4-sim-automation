@@ -181,6 +181,24 @@ mission:
     setpoint_interval_s: 0.2
 ```
 
+Multi-waypoint missions can use `motion_profile.legs` to replay each detected
+mission leg separately:
+
+```yaml
+mission:
+  motion_profile:
+    mode: offboard_ned
+    legs:
+      - north_m: 11.1
+        east_m: -21.2
+        target_altitude_m: 19.8
+        duration_s: 6.1
+      - north_m: 29.1
+        east_m: 17.8
+        target_altitude_m: 20.0
+        duration_s: 7.9
+```
+
 `duration_s` or `horizontal_speed_m_s` can be provided; when only horizontal
 speed is present, the mission runner derives duration from the north/east
 displacement. `target_altitude_m` is optional. When it is set, the runner adds

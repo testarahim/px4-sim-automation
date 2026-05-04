@@ -203,17 +203,41 @@ def load_motion_profile(config):
     if mode == "none":
         return {"mode": "none"}
 
+    if "legs" in profile:
+        legs = profile["legs"]
+        if not isinstance(legs, list) or not legs:
+            raise ValueError("mission.motion_profile.legs must be a non-empty list")
+        resolved_legs = [
+            load_motion_profile_leg(
+                leg,
+                f"mission.motion_profile.legs[{index}]",
+            )
+            for index, leg in enumerate(legs)
+        ]
+        return {
+            "mode": mode,
+            "legs": resolved_legs,
+            "timeout": sum(leg["timeout"] for leg in resolved_legs),
+            "setpoint_interval_s": min(
+                leg["setpoint_interval_s"] for leg in resolved_legs
+            ),
+        }
+
+    return load_motion_profile_leg(profile, "mission.motion_profile", mode=mode)
+
+
+def load_motion_profile_leg(profile, path, mode="offboard_ned"):
     north_m = get_optional_number(
         profile,
         "north_m",
         0.0,
-        path="mission.motion_profile",
+        path=path,
     )
     east_m = get_optional_number(
         profile,
         "east_m",
         0.0,
-        path="mission.motion_profile",
+        path=path,
     )
     distance_m = (north_m**2 + east_m**2) ** 0.5
     duration_s = get_nullable_number(
@@ -221,14 +245,14 @@ def load_motion_profile(config):
         "duration_s",
         None,
         positive=True,
-        path="mission.motion_profile",
+        path=path,
     )
     horizontal_speed_m_s = get_nullable_number(
         profile,
         "horizontal_speed_m_s",
         None,
         positive=True,
-        path="mission.motion_profile",
+        path=path,
     )
     if duration_s is None and horizontal_speed_m_s is None:
         raise ValueError(
@@ -252,7 +276,7 @@ def load_motion_profile(config):
             "target_altitude_m",
             None,
             positive=True,
-            path="mission.motion_profile",
+            path=path,
         ),
         "horizontal_speed_m_s": float(horizontal_speed_m_s),
         "duration_s": float(duration_s),
@@ -260,27 +284,27 @@ def load_motion_profile(config):
             profile,
             "yaw_deg",
             None,
-            path="mission.motion_profile",
+            path=path,
         ),
         "yaw_rate_deg_s": get_optional_number(
             profile,
             "yaw_rate_deg_s",
             0.0,
-            path="mission.motion_profile",
+            path=path,
         ),
         "timeout": get_optional_number(
             profile,
             "timeout",
             float(duration_s + 15.0),
             positive=True,
-            path="mission.motion_profile",
+            path=path,
         ),
         "setpoint_interval_s": get_optional_number(
             profile,
             "setpoint_interval_s",
             DEFAULT_SETPOINT_INTERVAL_S,
             positive=True,
-            path="mission.motion_profile",
+            path=path,
         ),
     }
 
@@ -583,7 +607,12 @@ async def run_offboard_ned_motion_profile(drone, profile):
 
 async def execute_motion(drone, motion_profile):
     if motion_profile["mode"] == "offboard_ned":
-        await run_offboard_ned_motion_profile(drone, motion_profile)
+        if "legs" in motion_profile:
+            for index, leg in enumerate(motion_profile["legs"], start=1):
+                report_event("offboard motion leg", f"{index}/{len(motion_profile['legs'])}")
+                await run_offboard_ned_motion_profile(drone, leg)
+        else:
+            await run_offboard_ned_motion_profile(drone, motion_profile)
 
 
 async def execute_landing(drone, landing_profile, landing_timeout):
