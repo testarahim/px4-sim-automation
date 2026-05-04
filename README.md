@@ -221,6 +221,30 @@ python3 scripts/inspect_log_candidates.py \
   --takeoff-altitude-m 1.0
 ```
 
+Extract a mission profile from one real log and generate a matching scenario
+draft:
+
+```bash
+python3 scripts/profile_real_log.py \
+  data/real/public_logs/example.ulg \
+  --output-json results/real_log_profile.json \
+  --output-scenario scenarios/generated_from_real.yaml
+```
+
+The profile includes takeoff altitude, mission duration, horizontal speed,
+north/east displacement, travel distance, and heading. The generated scenario
+can then be run and compared:
+
+```bash
+bash run.sh scenarios/generated_from_real.yaml
+
+python3 scripts/compare_logs.py \
+  --config scenarios/generated_from_real.yaml \
+  --alignment takeoff \
+  --sim results/runs/<run_id>/px4.ulg \
+  --real data/real/public_logs/example.ulg
+```
+
 ## Configuration
 
 Scenario YAML files define:

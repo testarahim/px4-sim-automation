@@ -305,6 +305,22 @@ The inspector reports altitude-derived quality fields such as
 `initial_altitude_m`, `max_altitude_m`, `final_altitude_m`, `airborne_start`,
 `takeoff_detected`, and `landing_detected`.
 
+For a chosen real log, `scripts/profile_real_log.py` extracts a richer mission
+profile from `vehicle_local_position`: takeoff altitude, total and airborne
+duration, horizontal speed, north/east displacement, travel distance, and
+heading. It can also generate a scenario YAML draft:
+
+```bash
+python3 scripts/profile_real_log.py \
+  data/real/public_logs/example.ulg \
+  --output-json results/real_log_profile.json \
+  --output-scenario scenarios/generated_from_real.yaml
+```
+
+This keeps the comparison workflow real-first: inspect the real mission shape,
+generate a compatible simulation scenario, run SITL, then compare with
+`scripts/compare_logs.py --alignment takeoff`.
+
 ## Operational Notes
 
 - PX4 SITL target: `gz_x500`

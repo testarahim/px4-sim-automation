@@ -67,12 +67,87 @@ Mevcut Durum
   serisi uzerinden on analiz ediyor; initial/max/final altitude, airborne
   start, takeoff_detected ve landing_detected alanlarini JSON/CSV olarak
   uretiyor.
+- scripts/profile_real_log.py secilen tek bir real .ulg logdan gorev profili
+  cikariyor: kalkis irtifasi, sureler, yatay hiz, north/east displacement,
+  toplam mesafe ve heading. Istenirse bu profilden scenario YAML taslagi da
+  uretiyor.
 - scripts/run_mission.py artik opsiyonel mission.px4_parameters alanini
   destekliyor; parametreleri arm oncesi set ediyor ve mission sonunda eski
   degerlerine geri yukluyor.
 
 Son Yapilan Is
 --------------
+- Real logdan scenario uretme akisinin ilk araci eklendi.
+  - Yeni script:
+    scripts/profile_real_log.py
+  - Script vehicle_local_position uzerinden su alanlari cikariyor:
+    duration_s, takeoff_time_s, target_reached_time_s, landing_time_s,
+    target_altitude_m, max_altitude_m, horizontal_speed_mean_m_s,
+    cruise_horizontal_speed_mean_m_s, cruise_displacement north/east/distance
+    ve heading_deg.
+  - --output-json ile profil JSON'u yaziliyor.
+  - --output-scenario verilirse mevcut run_mission.py kabiliyetlerine uygun
+    scenario YAML taslagi uretiliyor.
+  - Scenario uretimi real logdaki cruise displacement ve ortalama yatay hiza
+    gore offboard_ned north/east velocity ve duration_s hesapliyor.
+  - Testler eklendi:
+    tests/test_profile_real_log.py
+  - Testler calistirildi:
+    python3 -m unittest discover -s tests
+    Sonuc: 31 test OK.
+  - Not: Workspace icinde su an indirilen real .ulg log yok. Bu nedenle yeni
+    script unit testlerle dogrulandi; gercek real log uzerinde calistirma bir
+    sonraki adimda indirilen/secilecek log ile yapilacak.
+
+- Real-first akisi ilk kez gercek public log uzerinde calistirildi.
+  - Flight Review'dan filtreli 5 public log indirildi:
+    python3 scripts/download_public_logs.py
+      --mav-type Quadrotor --flight-modes Mission --rating Good
+      --min-duration-s 30 --max-duration-s 180
+      --min-flight-mode-duration-s Mission 20
+      --exclude-sys-hw PX4_SITL
+      --max-logged-warnings 5 --max-logged-errors 0
+      --max-num 5 --delay 0 --yes
+  - inspect_log_candidates.py sonucu:
+    5 log okunabilir, 5 airborne_start, 0 takeoff_detected,
+    1 landing_detected.
+  - En kullanilabilir aday secildi:
+    data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
+  - profile_real_log.py ile profil ve scenario uretildi:
+    results/real_profiles/2e2adf13_profile.json
+    scenarios/generated_2e2adf13.yaml
+  - Cikarilan real profil ozeti:
+    target_altitude_m=10.013721, max_altitude_m=11.688721,
+    duration_s=157.699794, takeoff_time_s=14.201576,
+    target_reached_time_s=78.503161, landing_time_s=128.108446,
+    cruise_duration_s=49.605285,
+    cruise_horizontal_speed_mean_m_s=3.065506,
+    cruise_displacement north=-18.821415, east=33.090668,
+    distance=38.068858, heading_deg=119.630490.
+  - Uretilen scenario SITL'de calistirildi:
+    bash run.sh scenarios/generated_2e2adf13.yaml
+  - Run artifact klasoru:
+    results/runs/20260504_140138/
+  - Generated scenario SITL kosusu overall_pass=true.
+  - Sim log real logla takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py
+      --config scenarios/generated_2e2adf13.yaml
+      --alignment takeoff
+      --sim results/runs/20260504_140138/px4.ulg
+      --real data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
+      --metrics results/comparisons/generated_2e2adf13_takeoff_aligned_metrics.json
+      --plot-dir results/plots/comparisons/generated_2e2adf13_takeoff_aligned
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=5.910949, velocity_rmse=4.161707,
+    roll_rmse=4.495180, pitch_rmse=12.153848,
+    yaw_rmse=156.879832,
+    yaw_heading_normalized_rmse=39.324183.
+  - Yorum: Yeni akis calisiyor; real log profili okunup scenario uretiliyor,
+    sim kosuyor ve compare raporu uretiliyor. Ancak secilen real log
+    airborne_start oldugu icin kalkis profili eksik ve attitude/yaw farklari
+    yuksek. Bir sonraki adim daha uygun takeoff+landing iceren real log
+    secmek veya mission modelini real profil farklarina gore genisletmek.
+
 - PX4 land parametreleriyle daha yavas final landing deneyi eklendi.
   - scripts/run_mission.py artik mission.px4_parameters mapping'ini okuyor.
   - Desteklenen degerler numeric PX4 parametreleridir; int degerler
@@ -181,14 +256,12 @@ Son Yapilan Is
 Siradaki Yapilacaklar
 ---------------------
 
-1. Real logdan scenario uretme akisini kur
-    - Secilen real .ulg log icin kalkis irtifasi, toplam/gorev/faz sureleri,
-      yatay hiz, gidilen mesafe ve hareket yonu cikarilmali.
-    - Goto/mission benzeri hareket varsa north/east displacement ve heading
-      hesaplanmali.
-    - Bu bilgilerden scenario YAML taslagi uretilmeli.
-    - Uretilen scenario SITL'de calistirilmali.
-    - Sim logu real logla --alignment takeoff ile karsilastirilmali.
+1. Daha uygun real log secimini iyilestir
+    - Ilk indirilen Mission loglarinin tamami airborne_start cikti.
+    - Takeoff ve landing detected olan log bulmak icin filtreler veya
+      inspect_log_candidates.py secim kriterleri iyilestirilmeli.
+    - Gerekirse Mission disinda Position/Altitude gibi modlari da iceren
+      kisa takeoff-goto-land loglari aranabilir.
 
 2. Mission kabiliyetini real profilden gelen ihtiyaca gore genislet
     - Real log sadece takeoff-hover-land degilse, run_mission.py icine
