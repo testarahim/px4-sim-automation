@@ -69,11 +69,17 @@ Mevcut Durum
   uretiyor.
 - scripts/profile_real_log.py secilen tek bir real .ulg logdan gorev profili
   cikariyor: kalkis irtifasi, sureler, yatay hiz, north/east displacement,
-  toplam mesafe ve heading. Istenirse bu profilden scenario YAML taslagi da
-  uretiyor.
-- scripts/run_mission.py artik opsiyonel mission.px4_parameters alanini
-  destekliyor; parametreleri arm oncesi set ediyor ve mission sonunda eski
-  degerlerine geri yukluyor.
+  toplam mesafe, heading, mission leg'leri, landing baslangici ve attitude/yaw
+  ozeti. Istenirse bu profilden scenario YAML taslagi da uretiyor.
+- scripts/run_mission.py opsiyonel mission.px4_parameters alanini destekliyor;
+  parametreleri arm oncesi set ediyor ve mission sonunda eski degerlerine geri
+  yukluyor.
+- scripts/run_mission.py mission.motion_profile ve
+  mission.motion_profile.legs destekliyor. Her leg icin north/east
+  displacement, hedef irtifa, sure/hiz ve yaw_start_deg/yaw_end_deg hedefleri
+  replay edilebiliyor.
+- scenarios/generated_qgc_sitl_02.yaml kontrollu QGC referans logundan
+  uretilmis en guncel cok-bacakli ve yaw hedefli senaryodur.
 
 Son Yapilan Is
 --------------
@@ -128,475 +134,55 @@ Son Yapilan Is
     degil, daha sik orneklenmis yaw setpoint serisiyle replay etmek veya
     MAVSDK Mission waypoint hiz/yaw semasini dogrudan kullanmak olabilir.
 
-- QGC mission logundaki waypoint bacaklari korunarak scenario uretimi
-  iyilestirildi.
-  - Kullanici screenshot'i QGC icindeki mission'in 4 -> 5 -> 6 -> Land
-    seklinde cok noktali oldugunu gosterdi. Onceki scenario bu yolu tek
-    displacement vektoru olarak temsil ettigi icin ara noktalar kayboluyordu.
-  - scripts/profile_real_log.py artik mission_result seq_current/seq_reached
-    gecislerinden mission_legs cikariyor.
-  - scripts/run_mission.py artik mission.motion_profile.legs listesini
-    destekliyor ve her leg'i sirayla Offboard NED profili olarak calistiriyor.
-  - Profil JSON'a attitude_summary eklendi:
-    roll/pitch/yaw baslangic-bitis, min/max, mutlak ortalama ve
-    yaw_rate_abs_mean_deg_s.
-  - Her t anindaki attitude serisi artifact olarak cikarildi:
-    results/real_profiles/qgc_sitl_02_attitude_timeseries.csv
-    Alanlar: time_s, roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg,
-    yaw_rate_deg_s.
-  - scenarios/generated_qgc_sitl_02.yaml yeniden uretildi; artik tek vektor
-    yerine 4 motion leg iceriyor:
-    1) north=11.087, east=-21.169, duration=6.1s
-    2) north=29.057, east=17.761, duration=7.9s
-    3) north=-8.173, east=24.572, duration=6.9s
-    4) north=-0.769, east=1.756, duration=7.8s
-  - Cok bacakli scenario SITL'de calistirildi:
-    RUN_ID=qgc_sitl_02_waypoint_generated_20260504_01
-    bash run.sh scenarios/generated_qgc_sitl_02.yaml
-  - Run artifact klasoru:
-    results/runs/qgc_sitl_02_waypoint_generated_20260504_01/
-  - SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=20.0, max_altitude_m=20.138313,
-    final_altitude_m=-0.025225, max_altitude_error_m=0.138313,
-    hover_altitude_rmse_m=0.956607, landing_duration_s=48.072,
-    duration_s=74.000.
-  - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
-    results/comparisons/qgc_sitl_02_waypoint_takeoff_aligned_metrics.json
-  - Compare sonucu overall_pass=false:
-    altitude_rmse=0.439053, velocity_rmse=1.175546,
-    roll_rmse=3.877123, pitch_rmse=6.869666,
-    yaw_rmse=83.789250,
-    yaw_heading_normalized_rmse=59.543933.
-  - Onceki tek-vektor QGC 02 compare'a gore velocity_rmse
-    2.484274 -> 1.175546 iyilesti.
-  - Segment sonuclari:
-    takeoff_climb altitude_rmse=0.053418,
-    hover_cruise altitude_rmse=0.082935,
-    landing altitude_rmse=0.025271.
-    hover_cruise sim horizontal_speed_mean_mps=2.776,
-    real horizontal_speed_mean_mps=2.827.
-  - Kalan ana fark yaw/heading profilinde:
-    hover_cruise sim yaw_rate_abs_mean_deg_s=5.564,
-    real yaw_rate_abs_mean_deg_s=14.641.
-  - Yorum: Ara waypoint bacaklarini korumak path/hiz eslesmesini belirgin
-    iyilestirdi. Neredeyse birebir ciktiya yaklasmak icin siradaki adim
-    mission leg bazinda yaw_deg/yaw_rate_deg_s hedeflerini real attitude
-    zaman serisinden cikarmak ve compare_logs.py icinde motion leg segmentlerini
-    ayri raporlamak olmali. Roll/pitch PX4 multicopter'de dogrudan mission
-    komutu olarak verilmemeli; hiz/yaw/setpoint profili dogru kuruldukca
-    autopilot roll/pitch cevabi metriklerle dogrulanmali.
-
-- Ikinci kontrollu QGroundControl SITL logu analiz edildi ve sim-real
-  karsilastirmasi icin scenario uretildi.
-  - Yeni referans log PX4 rootfs'ten kopyalandi:
-    data/real/qgc_sitl_reference/reference_qgc_sitl_02.ulg
-  - profile_real_log.py iyilestirildi:
-    vehicle_status.nav_state icinden AUTO_LAND baslangicini okuyarak
-    cruise fazini landing fazindan ayiriyor. Boylece cruise displacement,
-    cruise duration ve cruise horizontal speed land komutuna kadar
-    hesaplaniyor; landing_after_command_duration_s, landing_displacement,
-    landing_horizontal_speed_mean_m_s ve landing_descent_rate_mean_m_s
-    alanlari eklendi.
-  - Profil ve scenario uretildi:
-    results/real_profiles/qgc_sitl_02_profile.json
-    scenarios/generated_qgc_sitl_02.yaml
-  - QGC referans profil ozeti:
-    target_altitude_m=20.018990, max_altitude_m=20.097933,
-    takeoff_time_s=260.540, target_reached_time_s=271.052,
-    landing_start_time_s=301.692, landing_time_s=320.508,
-    airborne_duration_s=59.968,
-    cruise_duration_s=30.640,
-    cruise_displacement north=31.195278, east=22.916008,
-    distance=38.707736, heading_deg=36.300952,
-    cruise_horizontal_speed_mean_m_s=2.862781,
-    landing_after_command_duration_s=18.816,
-    landing_descent_rate_mean_m_s=1.052731.
-  - vehicle_status/faz ozeti:
-    AUTO_LOITER t=293.904s, AUTO_LAND t=301.692s,
-    disarm t=324.084s.
-    Takeoff climb duration=10.512s,
-    cruise_before_land_command duration=30.640s, distance=38.708m,
-    horizontal_speed_mean=2.863m/s,
-    landing_after_land_command duration=18.816s,
-    descent_rate_mean=1.053m/s.
-  - Generated scenario SITL'de calistirildi:
-    RUN_ID=qgc_sitl_02_generated_20260504_01
-    bash run.sh scenarios/generated_qgc_sitl_02.yaml
-  - Run artifact klasoru:
-    results/runs/qgc_sitl_02_generated_20260504_01/
-  - Generated QGC 02 scenario SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=20.0, max_altitude_m=19.993366,
-    final_altitude_m=0.019008, max_altitude_error_m=0.006634,
-    hover_altitude_rmse_m=0.291254, landing_duration_s=32.304,
-    duration_s=73.996.
-  - Sim log QGC 02 referans loguyla takeoff-aligned compare edildi:
-    python3 scripts/compare_logs.py
-      --config scenarios/generated_qgc_sitl_02.yaml
-      --alignment takeoff
-      --sim results/runs/qgc_sitl_02_generated_20260504_01/px4.ulg
-      --real data/real/qgc_sitl_reference/reference_qgc_sitl_02.ulg
-      --metrics
-        results/comparisons/qgc_sitl_02_generated_takeoff_aligned_metrics.json
-      --plot-dir
-        results/plots/comparisons/qgc_sitl_02_generated_takeoff_aligned
-  - Compare sonucu overall_pass=false:
-    altitude_rmse=0.662804, velocity_rmse=2.484274,
-    roll_rmse=3.998803, pitch_rmse=5.786144,
-    yaw_rmse=78.882956,
-    yaw_heading_normalized_rmse=70.807832.
-  - Segment bazinda altitude cok iyi eslesti:
-    takeoff_climb altitude_rmse=0.052601,
-    hover_cruise altitude_rmse=0.069585,
-    landing altitude_rmse=0.014935.
-  - Ana farklar hover_cruise hiz/yaw tarafinda:
-    hover_cruise sim duration=32.024s, real duration=31.048s,
-    sim horizontal_speed_mean_mps=1.274,
-    real horizontal_speed_mean_mps=2.827,
-    sim yaw_rate_abs_mean_deg_s=5.990,
-    real yaw_rate_abs_mean_deg_s=14.641.
-  - Yorum: Yeni AUTO_LAND tabanli profil ayrimi scenario suresini ve landing
-    fazini daha dogru ayirdi. Irtifa ve landing sureleri iyi eslesiyor.
-    Siradaki iyilestirme motion_profile fazini compare_logs.py icinde ayri
-    segment olarak olcmek ve QGC loglarindaki yaw/heading degisimini
-    profile_real_log.py icinden scenario'ya aktarmak olmali.
-
-- QGroundControl ile yapilan kontrollu SITL ucusu real-first referans olarak
-  analiz edildi ve otomatik tekrar kosusu yapildi.
-  - QGC ucus logu analiz edildi:
-    logs/latest_log.ulg
-  - Referans log run.sh tarafindan ezilmemesi icin kopyalandi:
-    data/real/qgc_sitl_reference/reference_qgc_sitl.ulg
-  - Profil ve scenario uretildi:
-    results/real_profiles/qgc_sitl_profile.json
-    scenarios/generated_qgc_sitl.yaml
-  - QGC referans profil ozeti:
-    target_altitude_m=13.954539, max_altitude_m=13.998151,
-    takeoff_time_s=32.684, target_reached_time_s=41.380,
-    landing_time_s=103.108, airborne_duration_s=70.424,
-    cruise_displacement north=139.685730, east=-27.503899,
-    distance=142.367720, heading_deg=348.861042,
-    cruise_horizontal_speed_mean_m_s=2.317316.
-  - vehicle_status uzerinden faz ozeti:
-    AUTO_TAKEOFF t=26.868s, AUTO_LOITER t=42.504s,
-    AUTO_LAND t=88.428s, disarm t=106.836s.
-    Takeoff climb duration=8.696s,
-    cruise_before_land_command duration=47.048s, distance=142.348m,
-    horizontal_speed_mean=3.033m/s,
-    landing_after_land_command duration=14.680s,
-    descent_rate_mean=0.929m/s.
-  - Generated scenario SITL'de calistirildi:
-    RUN_ID=qgc_sitl_generated_20260504_01
-    bash run.sh scenarios/generated_qgc_sitl.yaml
-  - Run artifact klasoru:
-    results/runs/qgc_sitl_generated_20260504_01/
-  - Generated QGC scenario SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=14.0, max_altitude_m=14.242350,
-    final_altitude_m=-0.014174, max_altitude_error_m=0.242350,
-    hover_altitude_rmse_m=0.668318, landing_duration_s=76.472,
-    duration_s=102.020.
-  - Sim log QGC referans loguyla takeoff-aligned compare edildi:
-    python3 scripts/compare_logs.py
-      --config scenarios/generated_qgc_sitl.yaml
-      --alignment takeoff
-      --sim results/runs/qgc_sitl_generated_20260504_01/px4.ulg
-      --real data/real/qgc_sitl_reference/reference_qgc_sitl.ulg
-      --metrics
-        results/comparisons/qgc_sitl_generated_takeoff_aligned_metrics.json
-      --plot-dir
-        results/plots/comparisons/qgc_sitl_generated_takeoff_aligned
-  - Compare sonucu overall_pass=false:
-    altitude_rmse=5.007887, velocity_rmse=1.897760,
-    roll_rmse=2.149437, pitch_rmse=2.990231,
-    yaw_rmse=30.803272,
-    yaw_heading_normalized_rmse=30.940909.
-  - Segment bazinda altitude cok iyi eslesti:
-    takeoff_climb altitude_rmse=0.052326,
-    hover_cruise altitude_rmse=0.144111,
-    landing altitude_rmse=0.026862.
-  - Ana farklar hover_cruise velocity/yaw tarafinda:
-    hover_cruise sim duration=66.040s, real duration=47.984s,
-    sim horizontal_speed_mean_mps=2.177,
-    real horizontal_speed_mean_mps=2.975,
-    sim yaw_rate_abs_mean_deg_s=2.481,
-    real yaw_rate_abs_mean_deg_s=3.226.
-  - Yorum: Kontrollu QGC SITL logu public loglara gore cok daha iyi referans.
-    Path/displacement ve altitude fazlari iyi eslesiyor. Bir sonraki teknik
-    adim compare/analyze tarafinda motion_profile fazini hover_cruise'dan ayri
-    segment olarak olcmek; ardindan profile_real_log.py icinde land komutu
-    baslangicini vehicle_status/nav_state ile yakalayip cruise sure/hizini
-    daha dogru scenario'ya aktarmak.
-
-- Mission hareket modeli real profilden gelen displacement ihtiyacina gore
-  genisletildi.
-  - scripts/run_mission.py artik opsiyonel mission.motion_profile alanini
-    destekliyor.
-  - Yeni motion_profile modu:
-    mode: offboard_ned
-    north_m/east_m displacement, target_altitude_m, horizontal_speed_m_s veya
-    duration_s, yaw_deg/yaw_rate_deg_s ve setpoint_interval_s ile takeoff/hover
-    sonrasi kontrollu offboard hareket calistiriyor.
-  - duration_s verilmezse north/east mesafe ve horizontal_speed_m_s uzerinden
-    sure hesaplanir. horizontal_speed_m_s verilmezse sureden ortalama hiz
-    hesaplanir.
-  - target_altitude_m verilirse hareket suresi boyunca hedef relatif irtifaya
-    yaklasacak NED down velocity bileseni eklenir.
-  - Eski landing_profile davranisi korundu; final landing davranisi ayri
-    kalmaya devam ediyor.
-  - scripts/profile_real_log.py artik cruise displacement bilgisini
-    landing_profile yerine mission.motion_profile olarak scenario'ya yaziyor.
-  - scenarios/generated_2e2adf13.yaml yeni motion_profile semasina tasindi.
-  - README.md ve docs/architecture.md yeni motion_profile semasini anlatacak
-    sekilde guncellendi.
-  - Testler guncellendi:
-    tests/test_run_mission.py
-    tests/test_profile_real_log.py
-  - Testler calistirildi:
-    python3 -m unittest discover -s tests
-    Sonuc: 36 test OK.
-  - Profil uretici smoke testi calistirildi:
-    python3 scripts/profile_real_log.py
-      data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
-      --output-json /tmp/2e2adf13_profile_smoke.json
-      --output-scenario /tmp/generated_2e2adf13_smoke.yaml
-    Sonuc: yeni scenario motion_profile alaniyla uretildi.
-  - SITL kosusu calistirildi:
-    bash run.sh scenarios/generated_2e2adf13.yaml
-  - Run artifact klasoru:
-    results/runs/20260504_142345/
-  - Generated motion_profile SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=10.0, max_altitude_m=10.031681,
-    final_altitude_m=-0.000670, max_altitude_error_m=0.031681,
-    hover_altitude_rmse_m=0.163169, landing_duration_s=24.664,
-    duration_s=81.0.
-  - Sim log real logla takeoff-aligned compare edildi:
-    python3 scripts/compare_logs.py
-      --config scenarios/generated_2e2adf13.yaml
-      --alignment takeoff
-      --sim results/runs/20260504_142345/px4.ulg
-      --real data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
-      --metrics
-        results/comparisons/generated_2e2adf13_motion_takeoff_aligned_metrics.json
-      --plot-dir
-        results/plots/comparisons/generated_2e2adf13_motion_takeoff_aligned
-  - Compare sonucu overall_pass=false:
-    altitude_rmse=5.872207, velocity_rmse=4.159934,
-    roll_rmse=4.493218, pitch_rmse=12.181219,
-    yaw_rmse=156.971721,
-    yaw_heading_normalized_rmse=39.339525.
-  - Segment Profile Metrics sonucu:
-    hover_cruise sim horizontal_speed_mean_mps=0.799,
-    real horizontal_speed_mean_mps=3.021.
-    landing sim descent_rate_mean_mps=0.797,
-    real descent_rate_mean_mps=0.128.
-  - Yorum: Real profilden gelen cruise displacement artik landing-oncesi
-    profilden bagimsiz bir mission hareket fazi olarak temsil ediliyor. Bir
-    sonraki iyilestirme bu motion fazinin real logla segment bazli compare
-    etkisini olcmek ve gerekirse yaw/heading hedefini profil analizinden
-    otomatik doldurmak olabilir.
-
-- Real logdan scenario uretme akisinin ilk araci eklendi.
-  - Yeni script:
-    scripts/profile_real_log.py
-  - Script vehicle_local_position uzerinden su alanlari cikariyor:
-    duration_s, takeoff_time_s, target_reached_time_s, landing_time_s,
-    target_altitude_m, max_altitude_m, horizontal_speed_mean_m_s,
-    cruise_horizontal_speed_mean_m_s, cruise_displacement north/east/distance
-    ve heading_deg.
-  - --output-json ile profil JSON'u yaziliyor.
-  - --output-scenario verilirse mevcut run_mission.py kabiliyetlerine uygun
-    scenario YAML taslagi uretiliyor.
-  - Scenario uretimi real logdaki cruise displacement ve ortalama yatay hiza
-    gore offboard_ned north/east velocity ve duration_s hesapliyor.
-  - Testler eklendi:
-    tests/test_profile_real_log.py
-  - Testler calistirildi:
-    python3 -m unittest discover -s tests
-    Sonuc: 31 test OK.
-  - Not: Workspace icinde su an indirilen real .ulg log yok. Bu nedenle yeni
-    script unit testlerle dogrulandi; gercek real log uzerinde calistirma bir
-    sonraki adimda indirilen/secilecek log ile yapilacak.
-
-- Real-first akisi ilk kez gercek public log uzerinde calistirildi.
-  - Flight Review'dan filtreli 5 public log indirildi:
-    python3 scripts/download_public_logs.py
-      --mav-type Quadrotor --flight-modes Mission --rating Good
-      --min-duration-s 30 --max-duration-s 180
-      --min-flight-mode-duration-s Mission 20
-      --exclude-sys-hw PX4_SITL
-      --max-logged-warnings 5 --max-logged-errors 0
-      --max-num 5 --delay 0 --yes
-  - inspect_log_candidates.py sonucu:
-    5 log okunabilir, 5 airborne_start, 0 takeoff_detected,
-    1 landing_detected.
-  - En kullanilabilir aday secildi:
-    data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
-  - profile_real_log.py ile profil ve scenario uretildi:
-    results/real_profiles/2e2adf13_profile.json
-    scenarios/generated_2e2adf13.yaml
-  - Cikarilan real profil ozeti:
-    target_altitude_m=10.013721, max_altitude_m=11.688721,
-    duration_s=157.699794, takeoff_time_s=14.201576,
-    target_reached_time_s=78.503161, landing_time_s=128.108446,
-    cruise_duration_s=49.605285,
-    cruise_horizontal_speed_mean_m_s=3.065506,
-    cruise_displacement north=-18.821415, east=33.090668,
-    distance=38.068858, heading_deg=119.630490.
-  - Uretilen scenario SITL'de calistirildi:
-    bash run.sh scenarios/generated_2e2adf13.yaml
-  - Run artifact klasoru:
-    results/runs/20260504_140138/
-  - Generated scenario SITL kosusu overall_pass=true.
-  - Sim log real logla takeoff-aligned compare edildi:
-    python3 scripts/compare_logs.py
-      --config scenarios/generated_2e2adf13.yaml
-      --alignment takeoff
-      --sim results/runs/20260504_140138/px4.ulg
-      --real data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
-      --metrics results/comparisons/generated_2e2adf13_takeoff_aligned_metrics.json
-      --plot-dir results/plots/comparisons/generated_2e2adf13_takeoff_aligned
-  - Compare sonucu overall_pass=false:
-    altitude_rmse=5.910949, velocity_rmse=4.161707,
-    roll_rmse=4.495180, pitch_rmse=12.153848,
-    yaw_rmse=156.879832,
-    yaw_heading_normalized_rmse=39.324183.
-  - Yorum: Yeni akis calisiyor; real log profili okunup scenario uretiliyor,
-    sim kosuyor ve compare raporu uretiliyor. Ancak secilen real log
-    airborne_start oldugu icin kalkis profili eksik ve attitude/yaw farklari
-    yuksek. Bir sonraki adim daha uygun takeoff+landing iceren real log
-    secmek veya mission modelini real profil farklarina gore genisletmek.
-
-- PX4 land parametreleriyle daha yavas final landing deneyi eklendi.
-  - scripts/run_mission.py artik mission.px4_parameters mapping'ini okuyor.
-  - Desteklenen degerler numeric PX4 parametreleridir; int degerler
-    set_param_int, float degerler set_param_float ile uygulanir.
-  - Parametreler uygulanmadan once eski degerleri okunur; mission basarili
-    olsa da hata verse de finally akisi icinde geri yuklenir.
-  - MAVSDK server'in run sonunda asili kalmamasi icin mission sonunda
-    _stop_mavsdk_server() cagrisi eklendi.
-  - Yeni scenario dosyasi eklendi:
-    scenarios/slow_profiled_landing_31m.yaml
-    takeoff_altitude=31, hover_time=10,
-    landing_profile=offboard_ned approach,
-    MPC_LAND_ALT1=10.0, MPC_LAND_ALT2=5.0,
-    MPC_LAND_SPEED=0.2, MPC_LAND_CRWL=0.2.
-  - Ilk daha agresif denemede MPC_LAND_ALT1=31 ve MPC_LAND_ALT2=30 ile
-    takeoff/climb akisi hedef irtifaya zamaninda ulasamadi. Bu nedenle
-    senaryo daha konservatif MPC_LAND_ALT1=10, MPC_LAND_ALT2=5 degerlerine
-    cekildi.
-  - SITL kosusu calistirildi:
-    bash run.sh scenarios/slow_profiled_landing_31m.yaml
-  - Run artifact klasoru:
-    results/runs/20260504_125253/
-  - Slow profiled landing SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=31.0, max_altitude_m=31.054453,
-    final_altitude_m=-0.026959, max_altitude_error_m=0.054453,
-    hover_altitude_rmse_m=0.365993, landing_duration_s=71.044,
-    duration_s=112.308.
-  - Onceki profiled_landing_31m kosusunda landing_duration_s=51.284 idi;
-    yeni parametreli kosuda landing_duration_s=71.044 oldu. Bu final landing
-    inisini yavaslatma yonunde olculen bir iyilesmedir.
-  - Kisa regresyon kosusu calistirildi:
-    bash run.sh scenarios/short_hover.yaml
-    Run artifact klasoru: results/runs/20260504_130251/
-    Sonuc: overall_pass=true ve run.sh ucundan ucuna temiz kapandi.
-  - Testler calistirildi:
-    python3 -m unittest discover -s tests
-    Sonuc: 28 test OK.
-  - Yorum: PX4 parametreleri final descent hizini yavaslatmak icin ise
-    yariyor. Fakat final action.land() hala yatay/yaw-rate davranisi
-    uretmiyor; landing segmentindeki horizontal_speed ve yaw_rate hedefleri
-    icin MAVSDK Mission/Waypoint tabanli alcalan approach veya baska bir
-    final landing stratejisi denenmeli.
-
-- Landing davranisini eslestirecek sim senaryosu tasarlandi ve eklendi.
-  - scripts/run_mission.py artik opsiyonel mission.landing_profile alanini
-    destekliyor.
-  - Varsayilan davranis degismedi: landing_profile yoksa standart
-    action.land() akisi kullaniliyor.
-  - Yeni landing_profile modu:
-    mode: offboard_ned
-    NED north/east velocity, descent_rate ve yaw_rate komutlariyla
-    landing oncesi kontrollu offboard profil calistiriyor.
-  - Offboard profil duration_s veya end_altitude_m kosulundan biri saglanana
-    kadar suruyor; sonra offboard durdurulup normal action.land() ile final
-    landing/disarm bekleniyor.
-  - SITL denemelerinde offboard velocity descent bileseni gz_x500 uzerinde
-    beklenen irtifa azalmasini uretmedigi icin yeni senaryo descent_rate=0.0
-    kullanarak landing-oncesi yatay/yaw approach profiline indirildi.
-  - Yeni scenario dosyasi eklendi:
-    scenarios/profiled_landing_31m.yaml
-    takeoff_altitude=31, hover_time=10,
-    north_velocity_m_s=2.0, descent_rate_m_s=0.0,
-    yaw_rate_deg_s=10.0, duration_s=25, timeout=40.
-  - README.md ve docs/architecture.md yeni scenario ve landing_profile
-    semasini anlatacak sekilde guncellendi.
-  - tests/test_run_mission.py eklendi.
-  - Testler calistirildi:
-    python3 -m unittest discover -s tests
-    Sonuc: 24 test OK.
-  - SITL kosusu calistirildi:
-    bash run.sh scenarios/profiled_landing_31m.yaml
-  - Run artifact klasoru:
-    results/runs/20260503_205550/
-  - Profiled landing SITL kosusu overall_pass=true.
-    Metrikler:
-    target_altitude_m=31.0, max_altitude_m=31.053423,
-    final_altitude_m=-0.055759, max_altitude_error_m=0.053423,
-    hover_altitude_rmse_m=0.375990, landing_duration_s=51.284,
-    duration_s=88.952.
-  - Yeni sim logu c50d804d real adayi ile takeoff-aligned compare edildi:
-    python3 scripts/compare_logs.py
-      --config scenarios/profiled_landing_31m.yaml
-      --alignment takeoff
-      --sim results/runs/20260503_205550/px4.ulg
-      --real data/real/public_logs/c50d804d-7bd8-440c-81d6-c665c5f492a9.ulg
-      --metrics
-        results/comparisons/public_log_profiled_landing_31m_takeoff_aligned_metrics.json
-      --plot-dir
-        results/plots/comparisons/public_log_profiled_landing_31m_takeoff_aligned
-  - Compare overall_pass=false ama onceki 31 m duz profile gore bazi metrikler
-    iyilesti:
-    altitude_rmse 15.195406 -> 11.619522.
-    velocity_rmse 2.582378 -> 2.278256.
-  - Segment Profile Metrics sonucu:
-    hover_cruise sim horizontal_speed_mean_mps 0.020 -> 1.419.
-    hover_cruise sim yaw_rate_abs_mean_deg_s 0.133 -> 9.829.
-    landing sim descent_rate_mean_mps 1.189 -> 1.190.
-    landing sim horizontal_speed_mean_mps 0.015 -> 0.026.
-    landing sim yaw_rate_abs_mean_deg_s 0.100 -> 0.086.
-  - Yorum: Landing-oncesi offboard approach global altitude/velocity RMSE'yi
-    iyilestirdi ve hover_cruise fazina real loga daha yakin yatay/yaw hareketi
-    ekledi. Fakat final landing hala standart PX4 land oldugu icin landing
-    segmenti real logdaki yavas/yatay/yaw-rate'li inise benzemiyor.
-
 Siradaki Yapilacaklar
 ---------------------
 
-1. Daha uygun real log secimini iyilestir
-    - Ilk indirilen Mission loglarinin tamami airborne_start cikti.
-    - Takeoff ve landing detected olan log bulmak icin filtreler veya
-      inspect_log_candidates.py secim kriterleri iyilestirilmeli.
-    - Gerekirse Mission disinda Position/Altitude gibi modlari da iceren
-      kisa takeoff-goto-land loglari aranabilir.
+Kontrol Sonucu
+--------------
+- Daha uygun real log secimi: Public Flight Review loglari icin filtre/aday
+  secimi henuz ayrica iyilestirilmedi. Ancak proje yonu kontrollu QGC/SITL
+  referans loglariyla ilerledigi icin bu madde su an birincil oncelik degil.
+- Motion profile etkisini real log karsilastirmasinda olcme: Yapildi.
+  mission.motion_profile, mission.motion_profile.legs, real logdan mission
+  leg cikarma, takeoff-aligned compare ve segment bazli raporlama kullanildi.
+- Heading/yaw bilgisinden motion_profile yaw hedefi doldurma: Yapildi.
+  profile_real_log.py leg bazli yaw_start_deg/yaw_end_deg/yaw_rate_deg_s
+  uretiyor; run_mission.py bu yaw hedeflerini replay ediyor.
+- Final landing yatay/yaw davranisini ayri optimize etme: Kismen yapildi.
+  landing_profile ve PX4 land parametre deneyleri var; mevcut QGC 02 referans
+  logunda landing segmenti zaten iyi eslestigi icin su an acil degil.
+- Batch raporuna sistem bilgisi ekleme: Yapilmadi.
+- Ayni filtrelerle 3-5 adaylik public log seti indirip batch compare raporu
+  uretme: Yapilmadi; kontrollu referans log akisi nedeniyle dusuk oncelik.
 
-2. Motion profile etkisini real log karsilastirmasinda olc
-    - Yeni mission.motion_profile ile uretilen sim logu real logla
-      takeoff-aligned ve segment bazli tekrar karsilastirilmali.
-    - profile_real_log.py heading/yaw bilgisinden motion_profile icin yaw_deg
-      veya yaw_rate_deg_s otomatik doldurmayi deneyebilir.
-    - Final landing yatay/yaw davranisi hala real log profili gerektiriyorsa
-      landing_profile veya PX4 land parametreleriyle ayri optimize edilmeli.
+1. Motion leg icinde yaw'u daha sik orneklenmis zaman serisiyle replay et
+    - Mevcut yaw replay leg baslangic/bitis arasinda lineer interpolation
+      kullaniyor.
+    - Real logdaki yaw_unwrapped_deg/yaw_rate_deg_s serisinden leg icinde daha
+      sik ornekli yaw setpoint listesi uretilmeli.
+    - run_mission.py bu listeyi leg suresi boyunca zaman-indexli uygulamali.
+    - Hedef: yaw_rmse ve yaw_heading_normalized_rmse degerlerini daha da
+      dusurmek.
 
-3. Ileride eklenebilecek iyilestirmeler
-    - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,
-      scenario listesi ve git commit hash'i.
-    - Daha temiz deney icin ayni filtrelerle 3-5 adaylik kucuk bir set indir
-      ve batch compare raporu uret.
+2. Motion leg segmentlerini compare_logs.py icinde ayri raporla
+    - Mevcut compare takeoff_climb, hover_cruise ve landing segmentlerini
+      raporluyor.
+    - motion_profile.legs icindeki her leg icin ayri RMSE ve profil ozeti
+      uretilmeli.
+    - Hedef: hangi leg'in velocity/yaw/attitude farkini buyuttugunu net gormek.
+
+3. Velocity + attitude zaman serisini kalici analiz aracina donustur
+    - Su an qgc_sitl_02_velocity_attitude_timeseries.csv artifact olarak
+      uretildi.
+    - Bunu profile_real_log.py icinde opsiyonel CLI cikti argumani haline
+      getirmek faydali olur.
+    - Alanlar: time_s, vx_m_s, vy_m_s, vz_m_s, horizontal_speed_m_s,
+      roll_deg, pitch_deg, yaw_deg, yaw_unwrapped_deg, yaw_rate_deg_s.
+
+4. Batch raporuna sistem bilgisi ekle
+    - PX4_DIR, PX4_SITL_TARGET, scenario listesi ve git commit hash'i
+      results/batches/<batch_id>/summary.json icine eklenmeli.
+
 
 Onemli Teknik Notlar
 --------------------
