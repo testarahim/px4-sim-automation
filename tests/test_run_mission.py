@@ -130,6 +130,65 @@ class RunMissionConfigTests(unittest.TestCase):
                 }
             )
 
+    def test_motion_profile_defaults_to_none(self):
+        profile = run_mission.load_motion_profile({"mission": {}})
+
+        self.assertEqual(profile, {"mode": "none"})
+
+    def test_motion_profile_loads_offboard_ned_displacement_with_duration(self):
+        profile = run_mission.load_motion_profile(
+            {
+                "mission": {
+                    "motion_profile": {
+                        "mode": "offboard_ned",
+                        "north_m": 30.0,
+                        "east_m": 40.0,
+                        "target_altitude_m": 12.0,
+                        "duration_s": 25.0,
+                        "yaw_deg": 90.0,
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(profile["mode"], "offboard_ned")
+        self.assertEqual(profile["north_m"], 30.0)
+        self.assertEqual(profile["east_m"], 40.0)
+        self.assertEqual(profile["target_altitude_m"], 12.0)
+        self.assertEqual(profile["duration_s"], 25.0)
+        self.assertEqual(profile["horizontal_speed_m_s"], 2.0)
+        self.assertEqual(profile["yaw_deg"], 90.0)
+
+    def test_motion_profile_derives_duration_from_horizontal_speed(self):
+        profile = run_mission.load_motion_profile(
+            {
+                "mission": {
+                    "motion_profile": {
+                        "mode": "offboard_ned",
+                        "north_m": 3.0,
+                        "east_m": 4.0,
+                        "horizontal_speed_m_s": 2.5,
+                    }
+                }
+            }
+        )
+
+        self.assertEqual(profile["duration_s"], 2.0)
+        self.assertEqual(profile["horizontal_speed_m_s"], 2.5)
+
+    def test_motion_profile_rejects_missing_duration_and_speed(self):
+        with self.assertRaises(ValueError):
+            run_mission.load_motion_profile(
+                {
+                    "mission": {
+                        "motion_profile": {
+                            "mode": "offboard_ned",
+                            "north_m": 3.0,
+                        }
+                    }
+                }
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,6 +11,7 @@ from mavsdk.param import ParamError
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "sim_config.yaml"
 DEFAULT_SYSTEM_ADDRESS = "udpin://0.0.0.0:14540"
+DEFAULT_SETPOINT_INTERVAL_S = 0.2
 
 
 def parse_args():
@@ -48,22 +49,32 @@ def get_positive_number(config, section, key):
     return value
 
 
-def get_optional_number(config, key, default, positive=False, non_negative=False):
+def get_optional_number(
+    config,
+    key,
+    default,
+    positive=False,
+    non_negative=False,
+    path="mission.landing_profile",
+):
     value = config.get(key, default)
     if not isinstance(value, (int, float)):
-        raise ValueError(f"Config value must be a number: mission.landing_profile.{key}")
+        raise ValueError(f"Config value must be a number: {path}.{key}")
     if positive and value <= 0:
-        raise ValueError(
-            f"Config value must be a positive number: mission.landing_profile.{key}"
-        )
+        raise ValueError(f"Config value must be a positive number: {path}.{key}")
     if non_negative and value < 0:
-        raise ValueError(
-            f"Config value must be non-negative: mission.landing_profile.{key}"
-        )
+        raise ValueError(f"Config value must be non-negative: {path}.{key}")
     return float(value)
 
 
-def get_nullable_number(config, key, default=None, positive=False, non_negative=False):
+def get_nullable_number(
+    config,
+    key,
+    default=None,
+    positive=False,
+    non_negative=False,
+    path="mission.landing_profile",
+):
     value = config.get(key, default)
     if value is None:
         return None
@@ -73,6 +84,7 @@ def get_nullable_number(config, key, default=None, positive=False, non_negative=
         value,
         positive=positive,
         non_negative=non_negative,
+        path=path,
     )
 
 
@@ -178,6 +190,101 @@ def load_landing_profile(config):
     return resolved_profile
 
 
+def load_motion_profile(config):
+    profile = config.get("mission", {}).get("motion_profile", {})
+    if profile is None:
+        return {"mode": "none"}
+    if not isinstance(profile, dict):
+        raise ValueError("Config value must be a mapping: mission.motion_profile")
+
+    mode = profile.get("mode", "none")
+    if mode not in ("none", "offboard_ned"):
+        raise ValueError("mission.motion_profile.mode must be none or offboard_ned")
+    if mode == "none":
+        return {"mode": "none"}
+
+    north_m = get_optional_number(
+        profile,
+        "north_m",
+        0.0,
+        path="mission.motion_profile",
+    )
+    east_m = get_optional_number(
+        profile,
+        "east_m",
+        0.0,
+        path="mission.motion_profile",
+    )
+    distance_m = (north_m**2 + east_m**2) ** 0.5
+    duration_s = get_nullable_number(
+        profile,
+        "duration_s",
+        None,
+        positive=True,
+        path="mission.motion_profile",
+    )
+    horizontal_speed_m_s = get_nullable_number(
+        profile,
+        "horizontal_speed_m_s",
+        None,
+        positive=True,
+        path="mission.motion_profile",
+    )
+    if duration_s is None and horizontal_speed_m_s is None:
+        raise ValueError(
+            "mission.motion_profile requires duration_s or horizontal_speed_m_s"
+        )
+    if duration_s is None:
+        if distance_m <= 0:
+            raise ValueError(
+                "mission.motion_profile horizontal_speed_m_s requires non-zero displacement"
+            )
+        duration_s = distance_m / horizontal_speed_m_s
+    if horizontal_speed_m_s is None:
+        horizontal_speed_m_s = distance_m / duration_s if distance_m > 0 else 0.0
+
+    return {
+        "mode": mode,
+        "north_m": north_m,
+        "east_m": east_m,
+        "target_altitude_m": get_nullable_number(
+            profile,
+            "target_altitude_m",
+            None,
+            positive=True,
+            path="mission.motion_profile",
+        ),
+        "horizontal_speed_m_s": float(horizontal_speed_m_s),
+        "duration_s": float(duration_s),
+        "yaw_deg": get_nullable_number(
+            profile,
+            "yaw_deg",
+            None,
+            path="mission.motion_profile",
+        ),
+        "yaw_rate_deg_s": get_optional_number(
+            profile,
+            "yaw_rate_deg_s",
+            0.0,
+            path="mission.motion_profile",
+        ),
+        "timeout": get_optional_number(
+            profile,
+            "timeout",
+            float(duration_s + 15.0),
+            positive=True,
+            path="mission.motion_profile",
+        ),
+        "setpoint_interval_s": get_optional_number(
+            profile,
+            "setpoint_interval_s",
+            DEFAULT_SETPOINT_INTERVAL_S,
+            positive=True,
+            path="mission.motion_profile",
+        ),
+    }
+
+
 async def wait_until_connected(drone, timeout):
     async def wait_for_connection_state():
         async for state in drone.core.connection_state():
@@ -216,6 +323,17 @@ async def wait_until_altitude_reached(drone, target_altitude, tolerance, timeout
         raise TimeoutError(
             f"Timed out waiting to reach {minimum_altitude:.1f} m relative altitude"
         ) from exc
+
+
+async def get_current_position(drone, timeout, description):
+    async def read_position():
+        async for position in drone.telemetry.position():
+            return position
+
+    try:
+        return await asyncio.wait_for(read_position(), timeout=timeout)
+    except asyncio.TimeoutError as exc:
+        raise TimeoutError(f"Timed out waiting for {description}") from exc
 
 
 async def wait_until_preflight_ready(drone, timeout):
@@ -399,6 +517,75 @@ async def run_offboard_ned_landing_profile(drone, profile):
             report_event("offboard stop warning", str(exc))
 
 
+async def run_offboard_ned_motion_profile(drone, profile):
+    duration_s = profile["duration_s"]
+    interval = profile["setpoint_interval_s"]
+    timeout = profile["timeout"]
+    position = await get_current_position(
+        drone,
+        timeout=min(timeout, 10.0),
+        description="motion profile start position",
+    )
+    current_altitude_m = position.relative_altitude_m
+    target_altitude_m = profile["target_altitude_m"]
+    down_velocity_m_s = 0.0
+    if target_altitude_m is not None:
+        down_velocity_m_s = (current_altitude_m - target_altitude_m) / duration_s
+
+    north_velocity_m_s = profile["north_m"] / duration_s
+    east_velocity_m_s = profile["east_m"] / duration_s
+    start_time = asyncio.get_running_loop().time()
+    deadline = start_time + timeout
+
+    def setpoint():
+        elapsed = asyncio.get_running_loop().time() - start_time
+        yaw_deg = profile["yaw_deg"]
+        if yaw_deg is None:
+            yaw_deg = profile["yaw_rate_deg_s"] * elapsed
+        return VelocityNedYaw(
+            north_velocity_m_s,
+            east_velocity_m_s,
+            down_velocity_m_s,
+            yaw_deg,
+        )
+
+    await drone.offboard.set_velocity_ned(setpoint())
+    try:
+        await drone.offboard.start()
+    except OffboardError as exc:
+        raise RuntimeError(f"Offboard motion profile failed to start: {exc}") from exc
+
+    report_event(
+        "offboard motion profile started",
+        (
+            f"north={profile['north_m']} m, east={profile['east_m']} m, "
+            f"duration={duration_s:.1f} s, "
+            f"target_altitude={target_altitude_m if target_altitude_m is not None else 'current'} m"
+        ),
+    )
+
+    try:
+        while True:
+            await drone.offboard.set_velocity_ned(setpoint())
+            elapsed = asyncio.get_running_loop().time() - start_time
+            if elapsed >= duration_s:
+                report_event("offboard motion profile complete", f"{elapsed:.1f} s")
+                return
+            if asyncio.get_running_loop().time() >= deadline:
+                raise TimeoutError("Timed out waiting for offboard motion profile")
+            await asyncio.sleep(interval)
+    finally:
+        try:
+            await drone.offboard.stop()
+        except OffboardError as exc:
+            report_event("offboard stop warning", str(exc))
+
+
+async def execute_motion(drone, motion_profile):
+    if motion_profile["mode"] == "offboard_ned":
+        await run_offboard_ned_motion_profile(drone, motion_profile)
+
+
 async def execute_landing(drone, landing_profile, landing_timeout):
     if landing_profile["mode"] == "offboard_body":
         await run_offboard_body_landing_profile(drone, landing_profile)
@@ -433,6 +620,7 @@ async def run(config_path=CONFIG_PATH):
     altitude_tolerance = get_positive_number(config, "mission", "altitude_tolerance")
     landing_timeout = get_positive_number(config, "mission", "landing_timeout")
     landing_profile = load_landing_profile(config)
+    motion_profile = load_motion_profile(config)
     px4_parameters = load_px4_parameters(config)
     connection_timeout = get_positive_number(config, "connection", "timeout")
     preflight_timeout = get_positive_number(config, "connection", "preflight_timeout")
@@ -480,6 +668,8 @@ async def run(config_path=CONFIG_PATH):
 
         print(f"Hover bekleniyor: {hover_time} s", flush=True)
         await asyncio.sleep(hover_time)
+
+        await execute_motion(drone, motion_profile)
 
         await execute_landing(drone, landing_profile, landing_timeout)
     finally:

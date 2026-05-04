@@ -16,6 +16,7 @@ the work.
 - One-command PX4 SITL run
 - Scenario-based mission configuration
 - MAVSDK-based takeoff, hover, and landing workflow
+- Optional takeoff-after motion profile from north/east displacement
 - Automatic PX4 log extraction
 - Per-run artifacts under `results/runs/<run_id>/`
 - Altitude metrics and pass/fail evaluation
@@ -253,6 +254,8 @@ Scenario YAML files define:
 - MAVSDK connection/preflight/arm timeouts
 - Mission takeoff altitude, hover time, and landing timeout
 - Optional `mission.px4_parameters` values to apply before arming
+- Optional `mission.motion_profile` settings for Offboard NED displacement
+  after takeoff/hover and before landing
 - Optional `mission.landing_profile` settings for Offboard NED/body-frame
   horizontal/descent/yaw-rate landing profiles
 - Pass/fail thresholds

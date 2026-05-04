@@ -68,16 +68,18 @@ class ProfileRealLogTests(unittest.TestCase):
 
         self.assertEqual(mission["takeoff_altitude"], 12.3)
         self.assertEqual(mission["hover_time"], 3.0)
-        self.assertEqual(mission["landing_profile"]["mode"], "offboard_ned")
+        self.assertEqual(mission["motion_profile"]["mode"], "offboard_ned")
         self.assertAlmostEqual(
-            mission["landing_profile"]["north_velocity_m_s"],
-            1.2,
+            mission["motion_profile"]["north_m"],
+            30.0,
         )
         self.assertAlmostEqual(
-            mission["landing_profile"]["east_velocity_m_s"],
-            1.6,
+            mission["motion_profile"]["east_m"],
+            40.0,
         )
-        self.assertEqual(mission["landing_profile"]["duration_s"], 25.0)
+        self.assertEqual(mission["motion_profile"]["target_altitude_m"], 12.3)
+        self.assertEqual(mission["motion_profile"]["horizontal_speed_m_s"], 2.0)
+        self.assertEqual(mission["motion_profile"]["duration_s"], 25.0)
 
     def test_build_scenario_without_motion_uses_hover_only(self):
         profile = {
@@ -96,7 +98,7 @@ class ProfileRealLogTests(unittest.TestCase):
 
         self.assertEqual(scenario["mission"]["takeoff_altitude"], 8.0)
         self.assertEqual(scenario["mission"]["hover_time"], 6.0)
-        self.assertNotIn("landing_profile", scenario["mission"])
+        self.assertNotIn("motion_profile", scenario["mission"])
 
     def test_profile_marks_missing_landing_as_not_detected(self):
         profile = profile_real_log.compute_real_profile(

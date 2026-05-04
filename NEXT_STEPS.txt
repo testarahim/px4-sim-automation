@@ -77,6 +77,75 @@ Mevcut Durum
 
 Son Yapilan Is
 --------------
+- Mission hareket modeli real profilden gelen displacement ihtiyacina gore
+  genisletildi.
+  - scripts/run_mission.py artik opsiyonel mission.motion_profile alanini
+    destekliyor.
+  - Yeni motion_profile modu:
+    mode: offboard_ned
+    north_m/east_m displacement, target_altitude_m, horizontal_speed_m_s veya
+    duration_s, yaw_deg/yaw_rate_deg_s ve setpoint_interval_s ile takeoff/hover
+    sonrasi kontrollu offboard hareket calistiriyor.
+  - duration_s verilmezse north/east mesafe ve horizontal_speed_m_s uzerinden
+    sure hesaplanir. horizontal_speed_m_s verilmezse sureden ortalama hiz
+    hesaplanir.
+  - target_altitude_m verilirse hareket suresi boyunca hedef relatif irtifaya
+    yaklasacak NED down velocity bileseni eklenir.
+  - Eski landing_profile davranisi korundu; final landing davranisi ayri
+    kalmaya devam ediyor.
+  - scripts/profile_real_log.py artik cruise displacement bilgisini
+    landing_profile yerine mission.motion_profile olarak scenario'ya yaziyor.
+  - scenarios/generated_2e2adf13.yaml yeni motion_profile semasina tasindi.
+  - README.md ve docs/architecture.md yeni motion_profile semasini anlatacak
+    sekilde guncellendi.
+  - Testler guncellendi:
+    tests/test_run_mission.py
+    tests/test_profile_real_log.py
+  - Testler calistirildi:
+    python3 -m unittest discover -s tests
+    Sonuc: 36 test OK.
+  - Profil uretici smoke testi calistirildi:
+    python3 scripts/profile_real_log.py
+      data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
+      --output-json /tmp/2e2adf13_profile_smoke.json
+      --output-scenario /tmp/generated_2e2adf13_smoke.yaml
+    Sonuc: yeni scenario motion_profile alaniyla uretildi.
+  - SITL kosusu calistirildi:
+    bash run.sh scenarios/generated_2e2adf13.yaml
+  - Run artifact klasoru:
+    results/runs/20260504_142345/
+  - Generated motion_profile SITL kosusu overall_pass=true.
+    Metrikler:
+    target_altitude_m=10.0, max_altitude_m=10.031681,
+    final_altitude_m=-0.000670, max_altitude_error_m=0.031681,
+    hover_altitude_rmse_m=0.163169, landing_duration_s=24.664,
+    duration_s=81.0.
+  - Sim log real logla takeoff-aligned compare edildi:
+    python3 scripts/compare_logs.py
+      --config scenarios/generated_2e2adf13.yaml
+      --alignment takeoff
+      --sim results/runs/20260504_142345/px4.ulg
+      --real data/real/public_logs/2e2adf13-6957-4e0b-b14f-fdce70682604.ulg
+      --metrics
+        results/comparisons/generated_2e2adf13_motion_takeoff_aligned_metrics.json
+      --plot-dir
+        results/plots/comparisons/generated_2e2adf13_motion_takeoff_aligned
+  - Compare sonucu overall_pass=false:
+    altitude_rmse=5.872207, velocity_rmse=4.159934,
+    roll_rmse=4.493218, pitch_rmse=12.181219,
+    yaw_rmse=156.971721,
+    yaw_heading_normalized_rmse=39.339525.
+  - Segment Profile Metrics sonucu:
+    hover_cruise sim horizontal_speed_mean_mps=0.799,
+    real horizontal_speed_mean_mps=3.021.
+    landing sim descent_rate_mean_mps=0.797,
+    real descent_rate_mean_mps=0.128.
+  - Yorum: Real profilden gelen cruise displacement artik landing-oncesi
+    profilden bagimsiz bir mission hareket fazi olarak temsil ediliyor. Bir
+    sonraki iyilestirme bu motion fazinin real logla segment bazli compare
+    etkisini olcmek ve gerekirse yaw/heading hedefini profil analizinden
+    otomatik doldurmak olabilir.
+
 - Real logdan scenario uretme akisinin ilk araci eklendi.
   - Yeni script:
     scripts/profile_real_log.py
@@ -263,13 +332,13 @@ Siradaki Yapilacaklar
     - Gerekirse Mission disinda Position/Altitude gibi modlari da iceren
       kisa takeoff-goto-land loglari aranabilir.
 
-2. Mission kabiliyetini real profilden gelen ihtiyaca gore genislet
-    - Real log sadece takeoff-hover-land degilse, run_mission.py icine
-      goto/waypoint veya mission tabanli hareket eklenmeli.
-    - Hareket north/east displacement, hedef irtifa, yatay hiz ve sure
-      parametreleriyle scenario'dan kontrol edilebilmeli.
-    - Final landing yatay/yaw davranisi da real log profili gerektiriyorsa
-      bu yeni hareket modelinin parcasi olarak ele alinmali.
+2. Motion profile etkisini real log karsilastirmasinda olc
+    - Yeni mission.motion_profile ile uretilen sim logu real logla
+      takeoff-aligned ve segment bazli tekrar karsilastirilmali.
+    - profile_real_log.py heading/yaw bilgisinden motion_profile icin yaw_deg
+      veya yaw_rate_deg_s otomatik doldurmayi deneyebilir.
+    - Final landing yatay/yaw davranisi hala real log profili gerektiriyorsa
+      landing_profile veya PX4 land parametreleriyle ayri optimize edilmeli.
 
 3. Ileride eklenebilecek iyilestirmeler
     - Batch raporuna sistem bilgisi ekle: PX4_DIR, PX4_SITL_TARGET,

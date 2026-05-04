@@ -71,7 +71,7 @@ The legacy default config remains at `config/sim_config.yaml`.
 - `run.sh`: Orchestrates one full scenario run and owns cleanup.
 - `scripts/start_sitl.py`: Starts PX4 SITL with `gz_x500`, filters PX4 console output, and shuts PX4 down cleanly.
 - `scripts/wait_for_sitl_ready.py`: Watches `logs/sitl.log` until PX4 reports the startup-ready pattern.
-- `scripts/run_mission.py`: Uses MAVSDK to connect, wait for preflight readiness, arm, take off, hover, optionally run an Offboard landing profile, land, and wait for disarm.
+- `scripts/run_mission.py`: Uses MAVSDK to connect, wait for preflight readiness, arm, take off, hover, optionally run an Offboard motion profile, optionally run an Offboard landing profile, land, and wait for disarm.
 - `scripts/extract_log.py`: Copies the newest PX4 `.ulg` log to both a latest alias and the current run artifact directory.
 - `scripts/analyze_log.py`: Computes altitude metrics, plots altitude, and writes `metrics.json`.
 - `scripts/run_batch.py`: Runs multiple scenarios sequentially and writes batch summaries.
@@ -158,6 +158,34 @@ Pass/fail evaluation currently uses:
 - `max_landing_final_altitude_m`
 
 The thresholds come from the active scenario/config YAML.
+
+## Motion Profiles
+
+The default mission flow hovers at the takeoff altitude and then lands.
+Scenarios can define `mission.motion_profile.mode: offboard_ned` to add a
+takeoff-after displacement before landing. This is the preferred place for
+real-log-derived cruise or goto-like motion because it keeps final landing
+behavior separate:
+
+```yaml
+mission:
+  motion_profile:
+    mode: offboard_ned
+    north_m: -18.8
+    east_m: 33.1
+    target_altitude_m: 10.0
+    horizontal_speed_m_s: 3.1
+    duration_s: 12.4
+    yaw_rate_deg_s: 0.0
+    timeout: 27.4
+    setpoint_interval_s: 0.2
+```
+
+`duration_s` or `horizontal_speed_m_s` can be provided; when only horizontal
+speed is present, the mission runner derives duration from the north/east
+displacement. `target_altitude_m` is optional. When it is set, the runner adds
+a vertical velocity component so the motion profile trends toward that relative
+altitude over the profile duration.
 
 ## Landing Profiles
 

@@ -270,18 +270,17 @@ def build_scenario_from_profile(
         0.0,
     )
 
-    landing_profile = None
+    motion_profile = None
     hover_time = max(3.0, min(cruise_duration, 10.0))
     if distance > 1.0 and cruise_speed > 0.1:
         move_duration = max(1.0, distance / cruise_speed)
-        north_velocity = displacement.get("north_m", 0.0) / move_duration
-        east_velocity = displacement.get("east_m", 0.0) / move_duration
         hover_time = max(3.0, cruise_duration - move_duration)
-        landing_profile = {
+        motion_profile = {
             "mode": "offboard_ned",
-            "north_velocity_m_s": round(float(north_velocity), 3),
-            "east_velocity_m_s": round(float(east_velocity), 3),
-            "descent_rate_m_s": 0.0,
+            "north_m": round(float(displacement.get("north_m", 0.0)), 3),
+            "east_m": round(float(displacement.get("east_m", 0.0)), 3),
+            "target_altitude_m": target_altitude,
+            "horizontal_speed_m_s": round(float(cruise_speed), 3),
             "yaw_rate_deg_s": 0.0,
             "duration_s": round(float(move_duration), 1),
             "timeout": round(float(move_duration + 15.0), 1),
@@ -296,8 +295,8 @@ def build_scenario_from_profile(
         "altitude_tolerance": float(altitude_tolerance_m),
         "landing_timeout": max(60, int(target_altitude * 4)),
     }
-    if landing_profile is not None:
-        mission["landing_profile"] = landing_profile
+    if motion_profile is not None:
+        mission["motion_profile"] = motion_profile
 
     return {
         "sitl": {

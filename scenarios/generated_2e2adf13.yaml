@@ -13,11 +13,12 @@ mission:
   climb_timeout: 45
   altitude_tolerance: 1.2
   landing_timeout: 60
-  landing_profile:
+  motion_profile:
     mode: offboard_ned
-    north_velocity_m_s: -1.516
-    east_velocity_m_s: 2.665
-    descent_rate_m_s: 0.0
+    north_m: -18.821
+    east_m: 33.091
+    target_altitude_m: 10.0
+    horizontal_speed_m_s: 3.066
     yaw_rate_deg_s: 0.0
     duration_s: 12.4
     timeout: 27.4
